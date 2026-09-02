@@ -1,0 +1,49 @@
+%\documentclass[twocolumn]{article}\
+\documentclass{article}
+\usepackage{amsmath, amssymb, cancel, mathtools, bm}
+\usepackage[left=.5in, right=.5in, top=1in, bottom=1in]{geometry}
+\usepackage[most]{tcolorbox}
+\usepackage[skip=1em,indent=0pt]{parskip}
+\setlength{\parindent}{0pt}
+\newcommand{\statvec}[1]{\underset{\sim}{\bm{#1}}} % Vector symbol (tilde under vector)
+\DeclareMathOperator{\EX}{\mathbb{E}} % Expected Value symbol
+\DeclareMathOperator{\ext}{\EX_{\theta}} % Expected Value symbol
+\DeclareMathOperator{\vart}{Var_{\theta}} % Expected Value symbol
+\newcommand{\indep}{\perp\!\!\!\!\perp} % Independence symbol
+\newcommand{\real}{\mathbb{R}} % Simplified 'Reals' indicator
+\newcommand{\pto}{\overset{P}{\to}}
+\newcommand{\asto}{\overset{a.s.}{\to}}
+\newcommand{\rthto}{\overset{L^r}{\to}}
+\newcommand{\dto}{\overset{D}{\to}}
+% Force all aggregate symbols to always put values above/below
+\let\Oldint=\int
+\let\Oldsum=\sum
+\let\Oldprod=\prod
+\let\Oldbigcup=\bigcup
+\let\Oldbigcap=\bigcap
+\let\Oldlim=\lim
+\renewcommand{\int}{\Oldint\limits} 
+\renewcommand{\sum}{\Oldsum\limits} 
+\renewcommand{\prod}{\Oldprod\limits} 
+\renewcommand{\bigcup}{\Oldbigcup\limits} 
+\renewcommand{\bigcap}{\Oldbigcap\limits} 
+\renewcommand{\lim}{\Oldlim\limits} 
+\newcommand{\infint}{\int_{-\infty}^{\infty}}
+\newcommand{\iiddist}{\overset{\mathrm{iid}}{\sim}}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\boldred}[1]{\textbf{\textcolor{red}{#1}}}
+\usepackage[linktoc=all]{hyperref}
+
+
+
+\begin{document}
+
+\tableofcontents
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Point Estimation}
+
+
+\end{document}
