@@ -5,7 +5,7 @@
 \usepackage[most]{tcolorbox}
 \usepackage[skip=1em,indent=0pt]{parskip}
 \setlength{\parindent}{0pt}
-\newcommand{\statvec}[1]{\underset{\sim}{\bm{#1}}} % Vector symbol (tilde under vector)
+\newcommand{\svec}[1]{\underset{\sim}{\bm{#1}}} % Vector symbol (tilde under vector)
 \DeclareMathOperator{\EX}{\mathbb{E}} % Expected Value symbol
 \DeclareMathOperator{\ext}{\EX_{\theta}} % Expected Value symbol
 \DeclareMathOperator{\vart}{Var_{\theta}} % Expected Value symbol
@@ -15,6 +15,8 @@
 \newcommand{\asto}{\overset{a.s.}{\to}}
 \newcommand{\rthto}{\overset{L^r}{\to}}
 \newcommand{\dto}{\overset{D}{\to}}
+\newcommand{\xtb}{x^{\top}\svec{\beta}}
+\newcommand{\xitb}{x_i^{\top}\svec{\beta}}
 % Force all aggregate symbols to always put values above/below
 \let\Oldint=\int
 \let\Oldsum=\sum
@@ -32,7 +34,6 @@
 \newcommand{\iiddist}{\overset{\mathrm{iid}}{\sim}}
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 \newcommand{\boldred}[1]{\textbf{\textcolor{red}{#1}}}
-\usepackage[linktoc=all]{hyperref}
 
 
 
@@ -43,7 +44,85 @@
 \newpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Point Estimation}
+\section{Likelihoods}
+
+What is a Likelihood?
+
+$y_i \iiddist N(x_i^{\top} \beta, \sigma^2)$
+
+$f(y_i) = \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}(y_i - x_i^{\top}\svec{\beta})^2}$
+
+That's just a height given a certain $y_i$. The likelihood is a product of function heights. 
+
+$f(y_1 \cap y_2) = f(y_i)f(y_2) = \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}(y_1 - x_1^{\top}\svec{\beta})^2}\frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}(y_2 - x_2^{\top}\svec{\beta})^2}$
+
+Likelihoods often mentioned as probabilities, and while they technically aren't, they basically are (see Measure Theory). For example, in Bayes': 
+
+$Post(\beta|data) = \frac{Lik(data|\beta)P(\beta)}{\int \int Lik(data|\beta)P(\beta)d\beta}$
+
+where we are effectively treating likelihood as a probability. 
+
+$L(\svec{y}) = \prod_{i=1}^n f(y_i) = \prod_{i=1}^n \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}(y_i - x_i^{\top}\svec{\beta})^2} = (\frac{1}{\sqrt{2\pi\sigma^2}})^{n/2}e^{-\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i - x_i^{\top}\svec{\beta})^2}$
+
+$\sum_{i=1}^n (y_i - \xitb)^2 = (\svec{y} - x\svec{\beta})^{\top}(\svec{y} - x\svec{\beta})$ This is then a dot-product of the two...
+
+$\implies L(\svec{y}) = (2\pi)^{-n/2}(\sigma^2)^{-n/2} e^{-\frac{1}{2\sigma^2}(\svec{y} - x\svec{\beta})^{\top}(\svec{y} - x\svec{\beta})}$
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{MLE of $\svec{\beta}$}
+
+$$\underset{nx1}{\svec{y}} = \underset{nxp}{X} \underset{px1}{\svec{\beta}} + \underset{nx1}{\svec{\epsilon}}, \epsilon_i \iiddist N(0, \sigma^2), \svec{y} \sim N(X\svec{\beta}, \sigma^2 I_n)$$
+
+$L(\svec{y}|\svec{\beta}, \sigma^2)$ we just switch the conditioning around for the likelihood of the parameters:
+
+$L(\svec{\beta}, \sigma^2 | \svec{y}) = (2\pi)^{-n/2}(\sigma^2)^{-n/2} e^{-\frac{1}{2\sigma^2}(\svec{y} - x\svec{\beta})^{\top}(\svec{y} - x\svec{\beta})}$
+
+To find the MLE for $\svec{\beta}$: $\frac{\partial}{\partial \svec{\beta}} L(\svec{\beta}, \sigma^2 | \svec{y})$, set it equal to 0
+
+$l(\svec{\beta}, \sigma^2 | \svec{y}) = -\frac{n}{2}ln(2\pi) - \frac{n}{2}ln(\sigma^2) - \frac{1}{2\sigma^2}(\svec{y} - x\svec{\beta})^{\top}(\svec{y} - x\svec{\beta})$
+
+When we take the derivative we will get p items because there are p elements in $\svec{\beta}$. 
+
+$\frac{\partial}{\partial \svec{\beta}} l(\svec{\beta}, \sigma^2 | \svec{y}) = -\frac{1}{2\sigma^2}\frac{\partial}{\partial \svec{\beta}}(\svec{y} - x\svec{\beta})^{\top}(\svec{y} - x\svec{\beta})$
+
+$(\svec{y} - x\svec{\beta})^{\top}(\svec{y} - x\svec{\beta}) = \svec{y}^{\top}\svec{y} - \svec{\beta}^{\top}X^{\top}\svec{y} - \svec{y}^{\top}X\svec{\beta} + \svec{\beta}^{\top}X^{\top}X\svec{\beta} = \svec{y}^{\top}\svec{y} - 2\svec{\beta}^{\top}X^{\top}\svec{y} + \svec{\beta}^{\top}X^{\top}X\svec{\beta}$
+
+$\frac{\partial}{\partial \svec{\beta}} \svec{y}^{\top}\svec{y} - 2\svec{\beta}^{\top}X^{\top}\svec{y} + \svec{\beta}^{\top}X^{\top}X\svec{\beta} = -2 X^{\top}\svec{y} + 2X^{\top}X\svec{\beta}$
+
+Set it equal to 0: $-2 X^{\top}\svec{y} + 2X^{\top}X\hat{\svec{\beta}} = 0$
+
+$\implies X^{\top}X\hat{\svec{\beta}} = X^{\top}\svec{y}$
+
+$\implies (X^{\top}X)^{-1}X^{\top}X\hat{\svec{\beta}} = (X^{\top}X)^{-1}X^{\top}\svec{y}$
+
+$\implies \hat{\svec{\beta}} = (X^{\top}X)^{-1}X^{\top}\svec{y}$
+
+$\EX(\hat{\svec{\beta}}) = \EX[(X^{\top}X)^{-1}X^{\top}\svec{y}] = (X^{\top}X)^{-1}X^{\top}X\svec{\beta} = \svec{\beta}$
+
+$V(A\svec{y}) = AV(\svec{y})A^{\top}$
+
+$Var(\hat{\svec{\beta}}) = Var[(X^{\top}X)^{-1}X^{\top}\svec{y}]$
+
+$\underset{pxn}{A} = \underset{pxp}{(X^{\top}X)^{-1}}\underset{pxn}{X^{\top}}$
+
+$\underset{nxp}{A^{\top}} = X(X^{\top}X)^{-1}$
+
+$Var(\hat{\svec{\beta}}) = (X^{\top}X)^{-1}X^{\top}Var(\svec{y})X(X^{\top}X)^{-1} = (X^{\top}X)^{-1}X^{\top}\sigma^2 I_n X(X^{\top}X)^{-1} = \sigma^2(X^{\top}X)^{-1}$
+
+$\underset{px1}{\hat{\svec{\beta}}} \sim N(\underset{px1}{\svec{\beta}}, \underset{pxp}{\sigma^2(X^{\top}X)^{-1}})$
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Multi-variate Normal} 
+
+$L = (2\pi)^{-n/2}|\Sigma|^{-1/2}e^{(-\frac{1}{2}(y-x\beta)^{\top}\Sigma^{-1}(y-x\beta))}$
+
+$\Sigma = \sigma^2 I_n$
+
+$L = (2\pi)^{-n/2}(\sigma^2)^{-n/2}e^{(-\frac{1}{2\sigma^2}(y-x\beta)^{\top}(y-x\beta))}$
+
+$l = -\frac{n}{2}ln(2\pi) - \frac{1}{2}ln(|\Sigma|) - \frac{1}{2}(y-x\beta)^{\top}\Sigma^{-1}(y-x\beta)$
+
+$\frac{\partial}{\partial \beta} (y-x\beta)^{\top}\Sigma^{-1}(y-x\beta)$
 
 
 \end{document}
