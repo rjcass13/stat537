@@ -124,5 +124,78 @@ $l = -\frac{n}{2}ln(2\pi) - \frac{1}{2}ln(|\Sigma|) - \frac{1}{2}(y-x\beta)^{\to
 
 $\frac{\partial}{\partial \beta} (y-x\beta)^{\top}\Sigma^{-1}(y-x\beta)$
 
+HW1 shows the derivation of the MLE for $\beta$ in the Multi-variate normal: $\hat{\beta} = (x^{\top} \Sigma^{-1}x)^{\top}x^{\top}\Sigma^{-1}y$
+
+
+$\EX[\hat{\beta}] = \EX_y[(x^{\top} \Sigma^{-1}x)^{\top}x^{\top}\Sigma^{-1}y] = (x^{\top} \Sigma^{-1}x)^{\top}x^{\top}\Sigma^{-1}\EX[y] = (x^{\top} \Sigma^{-1}x)^{\top}x^{\top}\Sigma^{-1}x\beta = \beta$
+
+We also get an unbiased by ignoring the covariance: 
+
+$\EX[(x^{\top}x)^{-1}x^{\top}y] = \beta$
+
+The variance for this (excluding covariance) is: $Var(\hat{\beta}) = \hat{\sigma}^2(x^{\top}x)^{-1}$
+
+
+Now, finding the Variance for the actual estimate (including covariance):
+
+(remember that $Var(y) = \Sigma$)
+
+$Var[\hat{\beta}] = Var((x^{\top}\Sigma^{-1}x)^{-1}x^{\top}\Sigma^{-1}y) = (x^{\top}\Sigma^{-1}x)^{-1} x^{\top}\Sigma^{-1} Var(y) \Sigma^{-1}x(x^{\top}\Sigma^{-1}x)^{-1} = (x^{\top}\Sigma^{-1}x)^{-1}$ 
+
+
+\section{Cell Means Stuff}
+
+Going to back to OG normals: 
+
+$\svec{y} \sim N(\svec{\mu}, \sigma^2 I)$, which we can just write as $N(x\svec{\mu}, \sigma^2 I_n)$
+
+This would be x is just a column of 1's: $(x^{\top}x)^{-1}x^{\top}\svec{y} = \frac{1}{n}\sum y_i = \bar{y}$
+
+Now let $\svec{\mu} = \begin{pmatrix} \mu_1 \\ \mu_2 \end{pmatrix}$
+
+The y is now a combined vector of data from each: $\begin{pmatrix} y_{11} \\ y_{12} \\ \vdots \\ y_{1 n_1} \\ y_{21} \\ y_{22} \\ \vdots \\ y_{2 n_2} \end{pmatrix}$
+
+So now x is a 2 column 'identity' matrix showing which mean each datapoint came from: $\begin{pmatrix} 1 & 0 \\ 1 & 0 \\ \vdots & \vdots \\ 1 & 0 \\ 0 & 1 \\ 0 & 1 \\ \vdots & \vdots\\ 0 & 1 \end{pmatrix}$
+
+$(x^{\top}x) = \begin{pmatrix} n_1 & 0 \\ 0 & n_2 \end{pmatrix}$
+
+$(x^{\top}x) = \begin{pmatrix} \frac{1}{n_1} & 0 \\ 0 & \frac{1}{n_2} \end{pmatrix}$
+
+$x^{\top}\svec{y} = \begin{pmatrix} \sum_{i=1}^{n_1} y_{1i} \\ \sum_{i=1}^{n_2} y_{2i} \end{pmatrix}$
+
+
+t-test: 
+
+$\frac{\text{est - null value}}{s.e.(est)} = \frac{\bar{y} - \text{null}}{\sqrt{\hat{\sigma}^2(x^{\top}x)^{-1}}} = \frac{(y-\hat{y})^{\top}(y-\hat{y})}{n-1} = \frac{\bar{y} - \text{null}}{\sqrt{\frac{\hat{\sigma}^2}{n}}} = \frac{\bar{y} - \text{null}}{\frac{\hat{\sigma}^2}{\sqrt{n}}}$
+
+
+Two Sample Independent t-test: null is $\mu_1 = \mu_2$: 
+
+Let our y's be: $\begin{pmatrix} \bar{y}_1 \\ \bar{y}_2 \end{pmatrix}$, and c be $\begin{pmatrix} 1 \\ -1 \end{pmatrix}$, then $\svec{c}\svec{y} = \bar{y}_1 - \bar{y}_2$
+
+$Var(c\hat{\beta}) = cVar(\hat{\beta})c^{\top} = \begin{pmatrix} 1 & -1 \end{pmatrix} \hat{\sigma}^2 (x^{\top}x)^{-1} \begin{pmatrix} 1 \\ -1 \end{pmatrix} = \begin{pmatrix} 1 & -1 \end{pmatrix} \hat{\sigma}^2 \begin{pmatrix} \frac{1}{n_1} & 0 \\ 0 & \frac{1}{n_2} \end{pmatrix} \begin{pmatrix} 1 \\ -1 \end{pmatrix} = \hat{\sigma}^2 (\frac{1}{n_1} + \frac{1}{n_2})$
+
+$\frac{\text{est - null}}{\text{s.e(est)}} = \frac{c\hat{\beta}}{se(c\hat{\beta})} = \frac{\bar{y}_1 - \bar{y}_2}{\sqrt{\hat{\sigma}^2(\frac{1}{n_1} + \frac{1}{n_2})}}$
+
+$F_{1, n_1+n_2-2} = \frac{(\bar{y}_1 - \bar{y}_2)}{\hat{\sigma}^2(\frac{1}{n_1} + \frac{1}{n_2})}$ 
+
+
+Now we use more x's:
+
+$\svec{y} \sim N(x\beta, \sigma^2 I_n)$
+
+$\svec{\mu} = \begin{pmatrix} \mu_1 \\ \mu_2 \\ \mu_3 \end{pmatrix}$
+
+$x = \begin{pmatrix} 1 & 0 & 0 \\ \vdots & \vdots & \vdots \\ 1 & 0 & 0 \\ 0 & 1 & 0 \\  \vdots & \vdots & \vdots \\ 0 & 1 & 0 \\ 0 & 0 & 1 \\ \vdots & \vdots & \vdots\\ 0 & 0 & 1 \end{pmatrix}$
+
+$\hat{\mu} = (x^{\top}x)^{-1}x^{\top}y = \begin{pmatrix} \frac{1}{n_1} \sum_{i=1}^{n_1} y_{1i} \\ \frac{1}{n_2} \sum_{i=1}^{n_2} y_{2i} \\ \frac{1}{n_3} \sum_{i=1}^{n_3} y_{3i} \end{pmatrix}$
+
+$c = \begin{pmatrix} 1 & -1 & 0 \\ 0 & 1 & -1 \end{pmatrix}$
+
+$c\svec{\mu} = \begin{pmatrix} \mu_1 - \mu_2 \\ \mu_2 - \mu_3 \end{pmatrix}$
+
+$F_{\text{rank of } c, n-p} = (c\hat{\beta})^{\top}(cVar(\hat{\beta})c^{\top})^{-1}(c\hat{\beta}) \frac{1}{\text{rank of }c}$
+
+null: $\mu_1 = \mu_2 = \mu_3$
 
 \end{document}

@@ -1,0 +1,31 @@
+---
+title: "HW2"
+author: "RJ Cass"
+format: pdf
+---
+
+```{r}
+dt <- read.table('advert_w_colnames.dat', header = TRUE)
+dt$groupf <- as.factor(dt$group)
+
+w <- model.matrix(response ~ groupf-1, data = dt)
+
+x <- model.matrix(response ~ groupf, data = dt)
+
+ai <- rbind(
+    cbind(1,0,0,0,0,0), 
+    cbind(1,1,0,0,0,0), 
+    cbind(1,0,1,0,0,0), 
+    cbind(1,0,0,1,0,0),
+    cbind(1,0,0,0,1,0),
+    cbind(1,0,0,0,0,1))
+ai
+a <- solve(ai)
+
+w%*%ai
+
+solve(t(w)%*%w)%*%t(w)%*%dt$response
+solve(t(x)%*%x)%*%t(x)%*%dt$response
+```
+
+
