@@ -4,28 +4,138 @@ author: "RJ Cass"
 format: pdf
 ---
 
+```{r init}
+suppressPackageStartupMessages(library(dplyr))
+dt <- read.table('cult_data.dat', header = FALSE)
+colnames(dt) <- c('field', 'cultivar', 'soil', 'weight')
+dt <- dt %>% 
+    group_by(soil, cultivar) %>% 
+    mutate(group = cur_group_id()) %>% 
+    ungroup()
+dt <- dt %>% 
+    mutate(across(c(field, cultivar, soil, group), as.factor))
+```
+
+# 1
+
 ```{r}
-dt <- read.table('advert_w_colnames.dat', header = TRUE)
-dt$groupf <- as.factor(dt$group)
+anova(lm(weight~cultivar*soil, data = dt))
+```
 
-w <- model.matrix(response ~ groupf-1, data = dt)
+According to the ANOVA output, when testing just the cultivar and soil effects (and their interaction), cultivar and the interaction do not have a significant effect on the growth of the plants. However, we do see that the soil has a significant effect. 
 
-x <- model.matrix(response ~ groupf, data = dt)
+# 2
 
-ai <- rbind(
-    cbind(1,0,0,0,0,0), 
-    cbind(1,1,0,0,0,0), 
-    cbind(1,0,1,0,0,0), 
-    cbind(1,0,0,1,0,0),
-    cbind(1,0,0,0,1,0),
-    cbind(1,0,0,0,0,1))
-ai
-a <- solve(ai)
-
-w%*%ai
-
-solve(t(w)%*%w)%*%t(w)%*%dt$response
-solve(t(x)%*%x)%*%t(x)%*%dt$response
+```{r}
+y <- dt$weight
+w <- model.matrix(y~group-1,data=dt)
+muhat <- solve(t(w)%*%w)%*%t(w)%*%y
+muhat
+# Group 1: Control, A
+# Group 2: Control, B
+# Group 3: Dead, A
+# Group 4: Dead, B
+# Group 5: Live, A
+# Group 6: Live, B
 ```
 
 
+# 3
+
+```{r full_contrast}
+
+y <- dt$weight
+w <- model.matrix(y ~ group-1, data=dt)
+x <- model.matrix(y ~ group, data=dt)
+
+#              | Cultivar a  | Cultivar b |
+# Soil Control |   1         |     2      |
+# Soil Dead    |   3         |     4      |
+# Soil Live    |   5         |     6      |
+
+
+c <- rbind(
+  c(1/6,1/6,1/6,1/6,1/6,1/6), # Overall mean
+  c(1/2,1/2,-1/2,-1/2,0,0), # Soil Control vs. Soil Dead
+  c(0,0,1/2,1/2,-1/2,-1/2), # Soil Dead vs. Soil Live
+  c(1/3,-1/3,1/3,-1/3,1/3,-1/3), # Cultivar A vs. B
+  c(1,-1,-1,1,0,0), # Interaction 1
+  c(0,0,1,-1,-1,1) # Interaction 2
+)
+
+muhat <- solve(t(w)%*%w)%*%t(w)%*%y
+beta <- solve(t(x)%*%x)%*%t(x)%*%y
+sse <- t(y-x%*%beta)%*%(y-x%*%beta)
+mse <- as.numeric(sse/(24-6))
+varmuhat <- mse*solve(t(w)%*%w)
+```
+
+```{r}
+c_cult <- c[4, ]
+fhat <- t(c_cult%*%muhat)%*%solve(c_cult%*%varmuhat%*%c_cult)%*%c_cult%*%muhat/1
+fhat
+1-pf(fhat,1,23)
+```
+
+No, this test is not significant
+
+# 4 
+
+```{r}
+c_soil <- c[2:3, ]
+fhat <- t(c_soil%*%muhat)%*%solve(c_soil%*%varmuhat%*%t(c_soil))%*%c_soil%*%muhat/2
+fhat
+1-pf(fhat,2,22)
+```
+
+Yes, this test is significant
+
+# 5 
+
+```{r}
+c_int <- c[5:6, ]
+fhat <- t(c_int%*%muhat)%*%solve(c_int%*%varmuhat%*%t(c_int))%*%c_int%*%muhat/2
+fhat
+1-pf(fhat,1,22)
+```
+
+No, there are not significant interactions
+
+# 6
+
+```{r}
+dt_red <- dt[!(dt$cultivar == 'b' & dt$soil == 'liv'),]
+
+w <- model.matrix(weight ~ group-1, data=dt_red)
+w1 <- w[,1:5] # Remove the all 0s column
+ym <- dt_red$weight
+muhat <- solve(t(w1)%*%w1)%*%t(w1)%*%ym
+muhat
+```
+
+# 7
+
+```{r}
+ai <- solve(c)
+Xm <- w%*%ai
+# Remove the second interaction (the one that depends on group 6) row to make it full rank
+Xn <- Xm[,-6]
+
+betahat <- solve(t(Xn)%*%Xn)%*%t(Xn)%*%ym
+sse <- t(ym-Xn%*%betahat)%*%(ym-Xn%*%betahat)
+mse <- as.numeric(sse)/(20-5)
+varbeta <- mse*solve(t(Xn)%*%Xn)
+newmuhat <- ai[,-6]%*%betahat
+newmuhat
+```
+
+The estimate for the cell is 34.55, while the original with data was 33.525, so the estimate was pretty close (only ~ 1 away).
+
+# 8
+
+```{r}
+vestmu <- ai[,-6]%*%varbeta%*%t(ai[,-6])
+cbind(newmuhat,sqrt(diag(vestmu)))
+```
+
+Standard error of the estimated cell mean is ~1.13, while the rest of the errors are about half that much, which makes sense. The error of the cell we estimated should be larger than the other estimates. 

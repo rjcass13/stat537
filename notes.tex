@@ -198,4 +198,59 @@ $F_{\text{rank of } c, n-p} = (c\hat{\beta})^{\top}(cVar(\hat{\beta})c^{\top})^{
 
 null: $\mu_1 = \mu_2 = \mu_3$
 
+\section{}
+
+Likelihood: $(2\pi)^{-n/2}|\Sigma|^{-1/2}e^{-\frac{1}{2}(y-x\beta)^{\top}\Sigma^{-1}(y-x\beta)}$
+
+Max Likelihood for $\hat{\beta} = (X^{\top}\Sigma^{-1}X)^{-1}X^{\top}\Sigma^{-1}\svec{y}$
+
+$V(\hat{\beta}) = (X^{\top}\Sigma^{-1}X)^{-1}$
+
+For the Ingot bond data, think of $\sigma_I^2$ as the variance between ingots, and $\sigma_e^2$ as the variance within a single ingot.
+
+$\begin{pmatrix} y_1 \\ y_2 \end{pmatrix}$: 
+$V(\svec{y}) = \Sigma = \begin{pmatrix} 
+    \sigma_e^2 + \sigma_I^2 & \sigma_I^2 \\ 
+    \sigma_I^2 & \sigma_e^2 + \sigma_I^2 
+\end{pmatrix}$
+
+$\begin{pmatrix} y_{11} \\ y_{12} \\ y_{21} \\ y_{22} \end{pmatrix}$: 
+$V(\svec{y}) = \Sigma = \begin{pmatrix} 
+    \sigma_e^2 + \sigma_I^2 & \sigma_I^2 & 0 & 0 \\ 
+    \sigma_I^2 & \sigma_e^2 + \sigma_I^2 & 0 & 0 \\
+    0 & 0 & \sigma_e^2 + \sigma_I^2 & \sigma_I^2 \\
+    0 & 0 & \sigma_I^2 & \sigma_e^2 + \sigma_I^2 \\
+\end{pmatrix}$
+
+$|\Sigma| = (\sigma_e^2 + \sigma_I^2) - (\sigma_I^2)^2$
+
+Remember, if $A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}, A^{-1} = \frac{1}{|A|}\begin{pmatrix} d & -b \\ -c & a \end{pmatrix}$
+
+$\Sigma^{-1} = \begin{pmatrix}
+\frac{\sigma_e^2 + \sigma_I^2}{(\sigma_e^2 + \sigma_I^2) - (\sigma_I^2)^2} & \frac{-\sigma_I^2}{(\sigma_e^2 + \sigma_I^2) - (\sigma_I^2)^2} \\ 
+\frac{-\sigma_I^2}{(\sigma_e^2 + \sigma_I^2) - (\sigma_I^2)^2} & \frac{\sigma_e^2 + \sigma_I^2}{(\sigma_e^2 + \sigma_I^2) - (\sigma_I^2)^2}
+\end{pmatrix}$
+
+If $X = \begin{pmatrix}
+    x_1^{\top} \\ x_2^{\top} \\ \vdots \\ x_n^{\top}
+\end{pmatrix}$ then $(y-x\beta) = \begin{pmatrix}
+    y_1 - x_1^{\top}\beta \\
+    y_2 - x_2^{\top}\beta
+\end{pmatrix}$
+
+
+\section{}
+
+Fixed Factor: all the levels of that factor are known. Not trying to make inference for anything outside that range/given levels. 
+
+Random Factor: we want to make inference to other thingss, generalize to the population, etc.
+
+Generalized Least Squares (GLS)
+
+$\hat{\beta} = (X^{\top}\hat{\Sigma}^{-1}X)^{-1}X^{\top}\hat{\Sigma}^{-1}\svec{y}$
+
+$y = x\svec{\beta} + \svec{\epsilon}, \svec{\epsilon} \sim N(\svec{0}, R)$
+
+$Var(y) = V(x\beta + \epsilon) = V(\epsilon) = R$
+
 \end{document}
