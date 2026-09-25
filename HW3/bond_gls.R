@@ -76,20 +76,37 @@ cm
 cm%*%bhat
 fhat <- t(cm%*%bhat)%*%solve(cm%*%varbhat%*%t(cm))%*%cm%*%bhat/2
 fhat
+# MLEs of variances are generaly biased too low
+# This means the F is generally too big
+# Even if it's unbiased, it's still an approximate F because there is no closed form 
+# solution for the variance. We're assuming these estimates for variances are correct,
+# but they're not exactly the true value
 1-pf(fhat,2,18)
 1-pf(fhat,2,16)
-# likelihood ratio test
+
+# Likelihood Ratio Test
+# Test that there's a difference in metal strength
 fit3 <- gls(strength ~ 1,correlation=corCompSymm(form=~1|ingot),method='ML',data=dat)
 anova(fit1,fit3)
+# Calculate the p-value directly
+pchisq(10.11648, 2, lower.tail = FALSE)
+
 # Let's try a general covariance structure
 fit4 <- gls(strength ~ -1+as.factor(metal),correlation=corSymm(form=~1|ingot),weights=varIdent(form=~1|metal),method='ML',data=dat)
 summary(fit4)
-3.940268^2
-(1.4421742*3.940268)^2
-(.7307121*3.940268)^2
+
+# Variances as pulled from Summary: the diagonals of the covariance matrix
+3.940268^2 # Metal 1 Variance (Residual Standard Error squared)
+(1.4421742*3.940268)^2 # Metal 2 variance (RSE * ratio provided in 'variance function' section)
+(.7307121*3.940268)^2 # Metal 3 Variance (RSE * ratio provided in 'variance function' section)
+
+# Covariances as pulled from summary: the off diagonals for the covariance matrix
+# rho_{12} = sigma_{12} / (sigma_1 * sigma_2) => sigma_{12} = rho_{12}*sigma_1*sigma_2
 0.909*(3.940268)*((1.4421742*3.940268))
 0.384*(3.940268)*((.7307121*3.940268))
 0.290*(1.4421742*3.940268)*((.7307121*3.940268))
+
+# Full covariance matrix
 sigma <- rbind(c(15.52,20.35,4.36),c(20.35,32.29,4.74),c(4.36,4.74,8.29))
 sigma
 sigma <- kronecker(diag(7),sigma)
@@ -106,13 +123,20 @@ fhat <- t(cm%*%bhat)%*%solve(cm%*%varbhat%*%t(cm))%*%cm%*%bhat/2
 fhat
 1-pf(fhat,2,18)
 1-pf(fhat,2,9)
+
 # test metal significance using LRT
 fit5 <- gls(strength ~ 1,correlation=corSymm(form=~1|ingot),weights=varIdent(form=~1|metal),method='ML',data=dat)
 summary(fit5)
 anova(fit4,fit5)
+
 # test covariance structure using LRT
 anova(fit4,fit1)
+# With 4 (9-5) degrees of freedom, fit4 increased the likelihood (less negative) as compared to fit1
+
 # covariance structure using AIC
 c(AIC(fit1),AIC(fit4))
-#covariance structure using BIC
+# Want AIC to be low, so still indicates fit4
+
+# covariance structure using BIC
 c(BIC(fit1),BIC(fit4))
+# Want BIC to be low, so still indicates fit4

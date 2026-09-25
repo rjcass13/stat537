@@ -249,8 +249,42 @@ Generalized Least Squares (GLS)
 
 $\hat{\beta} = (X^{\top}\hat{\Sigma}^{-1}X)^{-1}X^{\top}\hat{\Sigma}^{-1}\svec{y}$
 
-$y = x\svec{\beta} + \svec{\epsilon}, \svec{\epsilon} \sim N(\svec{0}, R)$
+$y = x\svec{\beta} + z\svec{u} + \svec{\epsilon}, \svec{\epsilon} \sim N(\svec{0}, R), \svec{u} \sim N(\svec{0}, G)$, $\epsilon, u$ are independent, where $x$ is the fixed effect and $z$ is the random effect. Hence the term mixed models
 
-$Var(y) = V(x\beta + \epsilon) = V(\epsilon) = R$
+Fixed effects coefficients tend to be greek letters, and random coefficients tend to be latin letters. 
+
+$y: 21x1, x: 21x3, z: 21x7$
+
+In the Ingot example, $G = \sigma^2_I I_I$
+
+3 is the number of $\beta$s, 7 is the number of $u$s. 
+
+$\EX[\svec{y}] = \EX[x\svec{\beta} + z\svec{u} + \svec{\epsilon}] = x\beta$
+
+$Var(y) = V(x\svec{\beta} + z\svec{u} + \epsilon) = xV(\beta)x^{\top} + zVar(u)z^{\top} + Var(\epsilon) = zGz^{\top} + R$
+
+$\begin{pmatrix}
+    y_1 = m_1 + u_1 + \epsilon_1 \\
+    y_2 = m_2 + u_1 + \epsilon_2 \\
+    y_3 = m_3 + u_1 + \epsilon_3 \\
+    y_4 = m_1 + u_2 + \epsilon_4 \\
+    \vdots \\
+    y_{21} = m_3 + u_7 + \epsilon_{21}
+\end{pmatrix}$
+
+$z = \begin{pmatrix}
+    1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+    &&&\vdots&&& \\
+    0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+\end{pmatrix}$
+
+HW: write out the X matrix, Z matrix, G matrix, R matrix, zGz' + R matrix?
+$G = \sigma^2_I I_1
+R = \sigma^2_e I_{21}
+X =$ Cell Means
+
 
 \end{document}
