@@ -272,6 +272,14 @@ $\begin{pmatrix}
     y_{21} = m_3 + u_7 + \epsilon_{21}
 \end{pmatrix}$
 
+$\begin{pmatrix}
+    y_{11} = \mu_{m1} + \mu_1 + \epsilon_{11} \\
+    y_{12} = \mu_{m1} +\mu_2 + \epsilon_{12} \\
+    \vdots \\
+    y_{21} = \mu_{m2} + \mu_1 + \epsilon_{21}
+    \vdots \\
+\end{pmatrix}$
+
 $z = \begin{pmatrix}
     1 & 0 & 0 & 0 & 0 & 0 & 0 \\
     1 & 0 & 0 & 0 & 0 & 0 & 0 \\
@@ -286,5 +294,6 @@ $G = \sigma^2_I I_1
 R = \sigma^2_e I_{21}
 X =$ Cell Means
 
+$\svec{y} \sim N(X\svec{\beta}, \Sigma), \Sigma = ZGZ^{\top} + R$
 
 \end{document}

@@ -1,0 +1,58 @@
+---
+title: "HW4"
+author: "RJ Cass"
+format: pdf
+---
+
+Calculate $ZGZ'+R$ using the matrics as given in class. 
+
+```{r}
+suppressPackageStartupMessages(library(lme4))
+suppressPackageStartupMessages(library(knitr))
+
+bond <- read.table('bond.dat')
+names(bond) <- c('ingot','metal','strength')
+
+fit <- lmer(strength ~ -1 + as.factor(metal) + (1 | ingot), 
+                 REML = FALSE, 
+                 data = bond)
+
+Z <- as.matrix(getME(fit, "Z"))
+num_groups <- ngrps(fit)[["ingot"]] 
+# Extract the raw scalar variance element from the VarCorr list
+raw_variance <- VarCorr(fit)[["ingot"]]
+# Build the complete G matrix by repeating that variance block for every group level
+G <- as.matrix(bdiag(replicate(num_groups, raw_variance, simplify = FALSE)))
+sig2 <- sigma(fit)^2
+R <- diag(sig2, nrow = nrow(bond))
+
+res <- Z %*% G %*% t(Z) + R
+```
+
+Here are the component matrices. 
+
+Z Matrix:
+
+```{r}
+kable(Z)
+```
+
+R Matrix:
+
+```{r}
+kable(round(R, 2))
+```
+
+G Matrix:
+
+```{r}
+kable(round(G, 2))
+```
+
+Finally, we get the resulting covariance matrix (note that I rounded to the first decimal just so it would output nicely): 
+
+```{r}
+kable(round(res, 1))
+```
+
+We can see the same compound symmetric structure as discussed in class.

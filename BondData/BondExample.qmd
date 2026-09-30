@@ -1,0 +1,43 @@
+---
+title: "Bond Example"
+author: "gwf"
+date: "9/23/2025"
+output: pdf_document
+---
+
+First read in the data.
+
+```{r}
+bond <- read.table('bond.dat')
+names(bond) <- c('ingot','metal','strength')
+```
+
+Load the mixed effects model library and run the model.
+
+```{r}
+library(lme4)
+fit <- lmer(strength ~  as.factor(metal) + (1|ingot),data=bond)
+summary(fit)
+ranef(fit)
+```
+
+Load the nlme library and run the same model.
+
+```{r}
+library(nlme)
+fit1 <- lme(strength ~ as.factor(metal), random=~1|ingot,data=bond)
+summary(fit1)
+logLik(fit1)
+AIC(fit1)
+fixef(fit1)
+ranef(fit1)
+```
+
+Load lmerTest library and show anova
+
+```{r}
+library(lmerTest)
+fit2 <- lmerTest::lmer(strength ~  as.factor(metal) + (1|ingot),data=bond)
+anova(fit2)
+anova(fit2,type=2)
+```
