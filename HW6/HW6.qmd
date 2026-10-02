@@ -1,0 +1,80 @@
+---
+title: "HW6"
+author: "RJ Cass"
+format: pdf
+---
+
+# 1
+
+$Y = \begin{pmatrix} y_{11} \\ y_{12} \\ y_{13} \\ y_{21} \\ y_{22} \\ y_{23} \end{pmatrix}$
+
+X is n by num_treatments. Which 'treatment' is each response from?
+
+$X = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \\1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix}$
+
+$\beta = \begin{pmatrix} \beta_1 \\ \beta_2 \\ \beta_3 \end{pmatrix}$
+
+Z is n by num_blocks. Which 'block' is each response from?
+
+$Z = \begin{pmatrix} 1 & 0 \\ 1 & 0 \\ 1 & 0 \\ 0 & 1 \\ 0 & 1 \\ 0 & 1 \end{pmatrix}$
+
+$u = \begin{pmatrix} u_1 \\ u_2 \end{pmatrix}$
+
+$e = \begin{pmatrix} e_{11} \\ e_{12} \\ e_{13} \\ e_{21} \\ e_{22} \\ e_{23} \end{pmatrix}$
+
+# 2
+
+$G = \begin{pmatrix} \sigma^2_b & 0 \\ 0 & \sigma^2_b \end{pmatrix}$
+
+$R = \begin{pmatrix} \sigma^2&0&0&0&0&0 \\ 0&\sigma^2&0&0&0&0 \\ 0&0&\sigma^2&0&0&0 \\ 0&0&0&\sigma^2&0&0 \\ 0&0&0&0&\sigma^2&0 \\ 0&0&0&0&0&\sigma^2\end{pmatrix}$
+
+$ZGZ' = \begin{pmatrix} 1 & 0 \\ 1 & 0 \\ 1 & 0 \\ 0 & 1 \\ 0 & 1 \\ 0 & 1 \end{pmatrix}\begin{pmatrix} \sigma^2_b & 0 \\ 0 & \sigma^2_b \end{pmatrix}\begin{pmatrix} 1 & 1 & 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 & 1 & 1 \end{pmatrix} = \begin{pmatrix} \sigma^2_b & 0 \\ \sigma^2_b & 0 \\ \sigma^2_b & 0 \\ 0 & \sigma^2_b \\ 0 & \sigma^2_b \\ 0 & \sigma^2_b \end{pmatrix}\begin{pmatrix} 1 & 1 & 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 & 1 & 1 \end{pmatrix} = \begin{pmatrix} \sigma^2_b & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b\end{pmatrix}$
+
+Now add R:
+
+$V(Y) = ZGZ' + R = \begin{pmatrix} \sigma^2_b & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b\end{pmatrix} + \begin{pmatrix} \sigma^2&0&0&0&0&0 \\ 0&\sigma^2&0&0&0&0 \\ 0&0&\sigma^2&0&0&0 \\ 0&0&0&\sigma^2&0&0 \\ 0&0&0&0&\sigma^2&0 \\ 0&0&0&0&0&\sigma^2\end{pmatrix} = \begin{pmatrix} \sigma^2_b + \sigma^2 & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b + \sigma^2 & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b + \sigma^2 & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_b + \sigma^2 & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b + \sigma^2 & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b + \sigma^2 \end{pmatrix}$
+
+# 3
+
+$K = \begin{pmatrix} 1/2 & 0 & 0 & 1/2 & 0 & 0 \end{pmatrix}$
+
+$KY = y_{11}/2 + y_{21}/2 = \bar{y}_{.1}$
+
+$V(KY) = KV(Y)K' = K(ZGZ'+R)K'$
+
+$\begin{pmatrix} 1/2 & 0 & 0 & 1/2 & 0 & 0 \end{pmatrix}\begin{pmatrix} \sigma^2_b + \sigma^2 & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b + \sigma^2 & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b + \sigma^2 & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_b + \sigma^2 & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b + \sigma^2 & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b + \sigma^2 \end{pmatrix} \begin{pmatrix} 1/2 \\ 0 \\ 0 \\ 1/2 \\ 0 \\ 0 \end{pmatrix} = \begin{pmatrix} (\sigma^2_b + \sigma^2)/2 & \sigma^2_b/2 & \sigma^2_b/2 & (\sigma^2_b + \sigma^2)/2 & \sigma^2_b/2 & \sigma^2_b/2 \end{pmatrix}\begin{pmatrix} 1/2 \\ 0 \\ 0 \\ 1/2 \\ 0 \\ 0 \end{pmatrix} = (\sigma^2_b + \sigma^2)/4 + (\sigma^2_b + \sigma^2)/4 = (\sigma^2_b + \sigma^2)/2$ 
+
+$K_1 = \begin{pmatrix} 1/2 & -1/2 & 0 & 1/2 & -1/2 & 0 \end{pmatrix}$
+
+$V(K_1Y) = K_1V(Y)K_1' = K_1(ZGZ'+R)K_1'$
+
+$\begin{pmatrix} 1/2 & -1/2 & 0 & 1/2 & -1/2 & 0 \end{pmatrix}\begin{pmatrix} \sigma^2_b + \sigma^2 & \sigma^2_b & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b + \sigma^2 & \sigma^2_b & 0 & 0 & 0 \\ \sigma^2_b & \sigma^2_b & \sigma^2_b + \sigma^2 & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_b + \sigma^2 & \sigma^2_b & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b + \sigma^2 & \sigma^2_b \\ 0 & 0 & 0 & \sigma^2_b & \sigma^2_b & \sigma^2_b + \sigma^2 \end{pmatrix} \begin{pmatrix} 1/2 \\ -1/2 \\ 0 \\ 1/2 \\ -1/2 \\ 0 \end{pmatrix} = \begin{pmatrix} \sigma^2/2 & -\sigma^2/2 & -\sigma^2/2 & \sigma^2/2 & -\sigma^2_b/2 & -\sigma^2/2 \end{pmatrix}\begin{pmatrix} 1/2 \\ -1/2 \\ 0 \\ 1/2 \\ -1/2 \\ 0 \end{pmatrix} = \sigma^2/4 + \sigma^2/4 + \sigma^2/4 + \sigma^2/4 = \sigma^2$ 
+
+# 4
+
+$Z = \begin{pmatrix} 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \end{pmatrix}$
+
+What happens to G? 
+
+$G = \begin{pmatrix} \sigma^2_b & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & \sigma^2_b & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & 0 & \sigma^2_s & 0 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_s & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & \sigma^2_s & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & \sigma^2_s & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & \sigma^2_s & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 0 & \sigma^2_s \\ \end{pmatrix}$
+
+# 5
+
+Block 1: Treatment 1, Treatment 2, Treatment 3
+Block 2: Treatment 1, Treatment 2, Treatment 3
+Block 3: Treatment 1, Treatment 2, Treatment 3
+Block 4: Treatment 1, Treatment 2, Treatment 3
+
+$y_{ijk} = tmt_i + block_j + error_{ijk}$
+
+```{r}
+treat_means <- c(25, 35, 30)
+sig2_e <- 10
+sig2_b <- 8
+n_treat <- 3
+n_block <- 4
+n_samp <- 4
+u <- rnorm(4, 0, sqrt(sig2_b))
+
+y <- unlist(lapply(1:n_treat, \(i) lapply(1:n_block, \(j) lapply(1:n_block, \(k) treat_means[i] + u[j] + rnorm(1, 0, sqrt(sig2_e))))))
+```

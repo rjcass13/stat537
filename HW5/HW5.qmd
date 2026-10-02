@@ -1,0 +1,49 @@
+---
+title: "HW5"
+author: "RJ Cass"
+format: pdf
+---
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(lme4))
+cult <- read.table('cult_data.dat', header = FALSE)
+colnames(cult) <- c('field', 'cultivar', 'soil', 'weight')
+cult <- cult %>% 
+    group_by(soil, cultivar) %>% 
+    mutate(group = cur_group_id()) %>% 
+    ungroup()
+cult <- cult %>% 
+    mutate(across(c(field, cultivar, soil, group), as.factor))
+```
+
+# 1
+
+```{r q1}
+fit <- lmer(weight ~  cultivar + soil + (1|field), data=cult)
+summary(fit)
+```
+
+The variance component of the random error is the 'Residual Variance' in the 'Random Effects' portion: 1.163
+
+# 2
+
+The between field variance component is the 'Field Variance' in the 'Random Effects' portion: 1.213
+
+# 3
+
+```{r}
+cell_means_mod <- lmer(weight ~ group - 1 + (1|field), data = cult)
+summary(cell_means_mod)
+```
+
+The estimate of the cell means is the estimates from the 'Fixed Effects' portion:
+
+| Group | Estimate | 
+|:-----:|:--------:|
+| 1     | 27.9     |
+| 2     | 28.025   |
+| 3     | 29.25    |
+| 4     | 30.65    |
+| 5     | 33.15    |
+| 6     | 33.525   |
