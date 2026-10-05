@@ -7,6 +7,8 @@ format: pdf
 ```{r}
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(lme4))
+suppressPackageStartupMessages(library(multcomp))
+suppressPackageStartupMessages(library(emmeans))
 cult <- read.table('cult_data.dat', header = FALSE)
 colnames(cult) <- c('field', 'cultivar', 'soil', 'weight')
 cult <- cult %>% 
@@ -47,3 +49,118 @@ The estimate of the cell means is the estimates from the 'Fixed Effects' portion
 | 4     | 30.65    |
 | 5     | 33.15    |
 | 6     | 33.525   |
+
+# 4
+
+The dimension of $\hat{\Sigma}$ is $n \times n$ ($24 \times 24$)
+
+```{r}
+sigma_e <- 1.163
+sigma_b <- 1.213
+
+Z <- model.matrix(weight ~ field - 1, data = cult)
+G <- sigma_b * diag(length(unique(cult$field)))
+R <- sigma_e * diag(nrow(cult))
+
+sigma_hat <- Z %*% G %*% t(Z) + R
+sigma_hat
+```
+
+# 5
+
+```{r}
+LambdaT <- getME(cell_means_mod, "Lambdat")
+Zt      <- getME(cell_means_mod, "Zt")
+
+# Extract the residual variance scale (sigma^2)
+vr <- sigma(cell_means_mod)^2
+
+# Combine them to get the total covariance matrix (V)
+var_b <- vr * (t(Zt) %*% crossprod(LambdaT) %*% Zt)
+sI    <- vr * Matrix::Diagonal(nobs(cell_means_mod))
+V     <- var_b + sI
+
+# View V as a standard dense matrix
+as.matrix(V)
+```
+
+# 6
+
+```{r}
+# Get the contrast matrix to apply directly to the model (coefs pulled from fixef(fit))
+L <- matrix(c(0, 1, 0, 0), nrow = 1)
+colnames(L) <- names(fixef(fit))
+cultivar_test <- glht(fit, linfct = L)
+summary(cultivar_test)
+```
+
+No, the effect is not significant.
+
+# 7
+
+```{r}
+L <- matrix(c(
+  0, 0, 1, 0,  # Row 1: Tests if soil2 = 0
+  0, 0, 0, 1   # Row 2: Tests if soil3 = 0
+), nrow = 2, byrow = TRUE)
+colnames(L) <- names(fixef(fit))
+soil_joint_test <- glht(fit, linfct = L)
+summary(soil_joint_test, test = Chisqtest()) 
+```
+
+Yes, the effect is significant.
+
+# 8
+
+```{r}
+mod_int <- lmer(weight ~ cultivar * soil + (1|field), data = cult)
+L <- matrix(c(
+  0, 0, 0, 0, 1, 0,  # Row 1: Tests if cultivarB:soil2 = 0
+  0, 0, 0, 0, 0, 1   # Row 2: Tests if cultivarB:soil3 = 0
+), nrow = 2, byrow = TRUE)
+colnames(L) <- names(fixef(mod_int))
+interaction_test <- glht(mod_int, linfct = L)
+summary(interaction_test, test = Chisqtest())
+```
+
+No, there are not significant interactions.
+
+# 9
+
+```{r}
+cult_red <- cult[!(cult$cultivar == 'b' & cult$soil == 'liv'),]
+fit_red <- lmer(weight ~ cultivar + soil + (1|field), data = cult_red)
+summary(fit_red)
+```
+
+Random Error: .9934
+
+Between Field Variance: .742
+
+# 10 
+
+```{r}
+cell_means_mod_red <- lmer(weight ~ group - 1 + (1|field), data = cult_red)
+summary(cell_means_mod_red)
+```
+
+| Group | Estimate | 
+|:-----:|:--------:|
+| 1     | 27.9     |
+| 2     | 28.025   |
+| 3     | 29.25    |
+| 4     | 30.65    |
+| 5     | 33.15    |
+
+# 11
+
+```{r}
+cell_means_red_filled <- emmeans(fit_red, ~ cultivar * soil)
+print(cell_means_red_filled)
+```
+
+The estimate for the missing cell is 33.9. When all data is inclued the estimate is 33.525, so this slightly overestimated the mean. However, it is within one standard error so pretty close!
+
+# 12
+
+Using the same output from 11, the Error is .826 which is much larger than the Errors of the other cells. However, the error from Cultivar A, Soil = liv is actually a little higher than the rest at .659, so the missing data in Cultivar B, soil = liv appears to have affected how sure we are about this group as well. 

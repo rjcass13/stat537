@@ -58,16 +58,25 @@ What happens to G?
 
 $G = \begin{pmatrix} \sigma^2_b & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & \sigma^2_b & 0 & 0 & 0 & 0 & 0 & 0 \\ 0 & 0 & \sigma^2_s & 0 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & \sigma^2_s & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & \sigma^2_s & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & \sigma^2_s & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & \sigma^2_s & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 0 & \sigma^2_s \\ \end{pmatrix}$
 
-# 5
+# 5-8
+
+At this point I'm combining 5-8 all into one because I can just do all 10 repetitions at once, then output the overall table with the final proportion of 'captured' events.
 
 Block 1: Treatment 1, Treatment 2, Treatment 3
+
 Block 2: Treatment 1, Treatment 2, Treatment 3
+
 Block 3: Treatment 1, Treatment 2, Treatment 3
+
 Block 4: Treatment 1, Treatment 2, Treatment 3
 
 $y_{ijk} = tmt_i + block_j + error_{ijk}$
 
 ```{r}
+suppressPackageStartupMessages(library(lme4))
+suppressPackageStartupMessages(library(emmeans))
+
+set.seed(1337)
 treat_means <- c(25, 35, 30)
 sig2_e <- 10
 sig2_b <- 8
@@ -76,5 +85,50 @@ n_block <- 4
 n_samp <- 4
 u <- rnorm(4, 0, sqrt(sig2_b))
 
-y <- unlist(lapply(1:n_treat, \(i) lapply(1:n_block, \(j) lapply(1:n_block, \(k) treat_means[i] + u[j] + rnorm(1, 0, sqrt(sig2_e))))))
+gen_data <- function() {
+    treatment <- factor(paste0("Trt_", 1:3))
+    block <- factor(paste0("Blk_", 1:4))
+    reps <- 1:4
+
+    # Create the 48-row design matrix
+    design_matrix <- expand.grid(Rep = reps, Treatment = treatment, Block = block)
+
+    y <- unlist(lapply(1:n_treat, \(i) lapply(1:n_block, \(j) lapply(1:n_samp, \(k) treat_means[i] + u[j] + rnorm(1, 0, sqrt(sig2_e))))))
+    dat <- as.data.frame(cbind(y, design_matrix$Block, design_matrix$Treatment))
+    colnames(dat) <- c("y", "Block", "Treatment")
+    dat$Block <- as.factor(dat$Block)
+    dat$Treatment <- as.factor(dat$Treatment)
+    dat
+}
+
+one_rep <- function(i) {
+    dt <- gen_data()
+    mod <- lmer(y ~ Treatment + (1|Block), data = dt)
+    trt_means <- emmeans(mod, ~ Treatment)
+    ci_table <- data.frame(summary(trt_means, infer = c(TRUE, FALSE), df = 35, level = 0.95))
+    ci_table$true_val <- treat_means
+    ci_table$captured <- ci_table$true_val >= ci_table$lower.CL & ci_table$true_val <= ci_table$upper.CL
+    ci_table
+}
+
+dt_list <- lapply(1:10, one_rep)
+
+final_table <- do.call(rbind, dt_list)
+
+mean_coverage <- mean(final_table$captured)
 ```
+
+Full table of results:
+
+```{r}
+final_table
+```
+
+Coverage of the intervals:
+
+```{r}
+mean_coverage
+```
+
+That's pretty dang close to the expected 95% coverage we'd expect (it's actually the closest we could possibly get, with either 28/30 or 29/30 covering).
+
