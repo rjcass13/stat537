@@ -1,0 +1,207 @@
+---
+title: "HW7"
+author: "RJ Cass"
+format: pdf
+---
+
+NOTE: I have a Mac so all SAS is run on SAS Studio online. So, I will copy any code I use into a code block here, but all outputs I will need to provide screenshots/regenerate them in R. 
+
+# 1
+$Y$ and $e$ are written with subscripts of block,treatment, ie $y_{12}$ is block 1 treatment 2.
+
+$Y = \begin{pmatrix} y_{11} \\ y_{12} \\ y_{21} \\ y_{22} \\ y_{31} \\ y_{32} \end{pmatrix}$
+
+X is n by num_treatments. Which 'treatment' is each response from?
+
+$X = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 0 \\ 0 & 1 \\ 1 & 0 \\ 0 & 1  \end{pmatrix}$
+
+$\beta = \begin{pmatrix} \beta_1 \\ \beta_2 \end{pmatrix}$
+
+Z is n by num_blocks. Which 'block' is each response from?
+
+$Z = \begin{pmatrix} 1 & 0 & 0 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \\ 0 & 0 & 1 \end{pmatrix}$
+
+$u = \begin{pmatrix} u_1 \\ u_2 \\ u_3 \end{pmatrix}$
+
+$e = \begin{pmatrix} e_{11} \\ e_{12} \\ e_{21} \\ e_{22} \\ e_{31} \\ e_{32} \end{pmatrix}$
+
+# 2
+
+```{r q2}
+set.seed(1337)
+treat_means <- c(100, 110)
+sig2_e <- 16
+sig2_b <- 12
+n_treat <- 2
+n_block <- 10
+n_samp <- 5
+u <- rnorm(n_block, 0, sqrt(sig2_b))
+
+gen_data <- function() {
+    treatment <- factor(paste0("Trt_", 1:n_treat))
+    block <- factor(paste0("Blk_", 1:n_block))
+    reps <- 1:n_samp
+
+    design_matrix <- expand.grid(Rep = reps, Treatment = treatment, Block = block)
+
+    y <- unlist(lapply(1:n_treat, \(i) lapply(1:n_block, \(j) lapply(1:n_samp, \(k) treat_means[i] + u[j] + rnorm(1, 0, sqrt(sig2_e))))))
+    dat <- as.data.frame(cbind(y, design_matrix$Block, design_matrix$Treatment))
+    colnames(dat) <- c("y", "Block", "Treatment")
+    dat$Block <- as.factor(dat$Block)
+    dat$Treatment <- as.factor(dat$Treatment)
+    dat
+}
+
+dt <- gen_data()
+write.csv(dt, 'q2_gen_data.csv', row.names = FALSE)
+```
+
+Not going to show the generated data, but I export it to CSV to get into SAS Studio.
+
+# 3
+
+```{}
+PROC IMPORT DATAFILE='/home/u49685591/STAT537/HW7/q2_gen_data.csv' 
+    DBMS=CSV 
+    OUT=WORK.HW7 
+    REPLACE;
+    GETNAMES=YES;
+RUN;
+
+proc mixed data=HW7 method = REML;
+class Block Treatment;
+model y = Treatment / noint s ddfm=satterth;
+random Block;
+run;
+```
+
+```{r q3}
+sas_sigma2_b <- 30.4196
+sas_sigma2_e <- 27.3545
+sas_trt1_mean <- 107.17
+sas_trt2_mean <- 108.31
+```
+
+The estimated output from SAS indicates a $\sigma^2_b$ of `r sas_sigma2_b` and a $\sigma^2_e$ of `r sas_sigma2_e`, which are nowhere near the actual values provided. It also estimated that $\beta_{Trt1}$ = `r sas_trt1_mean` and $\beta_{Trt2}$ = `r sas_trt2_mean`, which does show Treatment 1 being lower than Treatment 2, but not by much (the typical interpretation of Treatment 2 as a difference of Treatment 1 would be $\beta_{Trt2}$ = `r sas_trt2_mean - sas_trt1_mean`).
+
+# 4
+
+```{r q4}
+sas_fixed_f_stat <- 1751.09
+```
+
+The F Statistic provided by the output of SAS for the test of whether there is a significant treatment effect is `r sas_fixed_f_stat`. This gave a P-value WELL under .05 which would indicate that yes, treatment does have a significant effect. 
+
+# 5
+
+```{r q5}
+suppressPackageStartupMessages(library('lme4'))
+mod <- lmer(y ~ Treatment + (1|Block), data = dt)
+summary(mod)
+
+# Outputs from Summary
+r_lmer_sigma2_b <- 30.42
+r_lmer_sigma2_e <- 27.35
+r_lmer_trt1_mean <- 107.165 # Intercept of the fixed effects
+r_lmer_trt2_mean <- 105.704 + 1.146
+```
+
+We got the exact same values (within rounding) as the output from SAS. 
+
+The estimated output from R indicates a $\sigma^2_b$ of `r r_lmer_sigma2_b` and a $\sigma^2_e$ of `r r_lmer_sigma2_e`, which, again, are nowhere near the actual values provided. It also estimated that $\beta_{Trt1}$ = `r r_lmer_trt1_mean` and $\beta_{Trt2}$ = `r r_lmer_trt2_mean`, which does show Treatment 1 being lower than Treatment 2, but not by much (the typical interpretation of Treatment 2 as a difference of Treatment 1 would be $\beta_{Trt2}$ = `r r_lmer_trt2_mean - r_lmer_trt1_mean`). 
+
+# 6
+
+```{r q6}
+mod_ml <- lmer(y ~ Treatment + (1|Block), data = dt, REML = FALSE)
+summary(mod_ml)
+
+# Outputs from Summary
+r_ml_sigma2_b <- 27.13
+r_ml_sigma2_e <- 27.05
+```
+
+The $\beta$ estimates actually remained exactly the same. However, the estimates of the variance changed to $\sigma^2_b$ of `r r_ml_sigma2_b` and a $\sigma^2_e$ of `r r_ml_sigma2_e` which is still not close to the true values, though technically closer.
+
+# 7
+
+```{r q7}
+suppressPackageStartupMessages(library('lmerTest'))
+
+# I'm using this package I found online to test the likliehood since ANOVA doesn't work with lm and lmer together
+# Test using the REML method
+ranova(mod)
+
+# Test using the ML method
+ranova(mod_ml)
+```
+
+Both tests indicate that, with p-values MUCH less than .05, we reject $H_0: \sigma^2_b = 0$. I didn't do anything specific to divide by 2, but I'm assuming the ranova() function already does that. 
+
+# 8 
+
+```{r q8}
+mod_red <- lmer(y ~ (1 | Block), data = dt, REML = FALSE)
+anova(mod_ml, mod_red)
+```
+
+Comparing the reduced to the full model, we get a $\chi^2$ statistic of ~1.21 with degrees of freedom of 1, and p-value of ~.27 which indicates that we accept the $H_0: \beta_{Trt1} = \beta_{Trt2}$. The F-test said this was definitely significant, where as this test says it is not significant. 
+
+# 9
+
+```{r q9}
+remove_rows <- sample(1:100, 20, replace = FALSE)
+dt_red <- dt[-remove_rows,]
+write.csv(dt_red, 'q9_gen_data.csv', row.names = FALSE)
+```
+
+```{}
+PROC IMPORT DATAFILE='/home/u49685591/STAT537/HW7/q9_gen_data.csv' 
+    DBMS=CSV 
+    OUT=WORK.HW7 
+    REPLACE;
+    GETNAMES=YES;
+RUN;
+
+proc mixed data=HW7 method = REML;
+class Block Treatment;
+model y = Treatment / noint s ddfm=satterth;
+random Block;
+run;
+```
+
+In the final Fixed Effects test, the DF changed from 15 in the first analysis to 14.6 in this one. 
+
+# 10
+
+The degrees of freedom changed a bit based on how the data were removed. In this case I got a DF of 11 for Treatment 2 and 10.5 for Treatment 1, compared to 10.5 for both in the first analysis. 
+
+# 11
+
+```{}
+PROC IMPORT DATAFILE='/home/u49685591/STAT537/HW7/q9_gen_data.csv' 
+    DBMS=CSV 
+    OUT=WORK.HW7 
+    REPLACE;
+    GETNAMES=YES;
+RUN;
+
+proc mixed data=HW7 method = REML;
+class Block Treatment;
+model y = Treatment / noint s ddfm=KenwardRoger;
+random Block;
+run;
+```
+
+I noticed that the DF for the test of fixed effects jumped up to 20.4, where the previous test used a DF of 14.6. This also impacted the F statistic, though the p-value is still VERY small. 
+
+# 12
+
+I perform this back on the original dataset, not the one with 20 removed rows. 
+
+```{r}
+mod_int <- lmer(y ~ Treatment + (1 | Block) + (1 | Treatment:Block), data = dt)
+anova(mod, mod_int)
+```
+
+Even though we know the interaction doesn't exist, we do indeed reject the $H_0: \sigma^2_{tb} = 0$ and we conclude that there is a significant interaction. 

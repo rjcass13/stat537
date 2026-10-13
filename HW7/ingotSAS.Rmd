@@ -1,0 +1,30 @@
+---
+title: "Proc Mixed"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+This is an example of a mixed model in SAS.
+
+```{r, engine='sas', engine.path='/usr/local/SASHome/SASFoundation/9.4/bin/sas_en'}
+data ingot;
+infile '/home/gwf/sync/classes/537/sas/ch1/bond.dat' firstobs=1;
+input ingot metal $ pressure;
+run;
+
+proc mixed data=ingot  method=REML;
+class ingot metal;
+model pressure =  metal / noint s ddfm=satterth;
+random ingot;
+run;
+
+proc mixed data=ingot method=REML;
+class ingot metal;
+model pressure = metal;
+repeated /subject=ingot type=cs;
+run;
+endsas;
+```
+
+

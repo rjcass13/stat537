@@ -22,15 +22,15 @@ cult <- cult %>%
 # 1
 
 ```{r q1}
-fit <- lmer(weight ~  cultivar + soil + (1|field), data=cult)
+fit <- lmer(weight ~  cultivar * soil + (1|field), data=cult)
 summary(fit)
 ```
 
-The variance component of the random error is the 'Residual Variance' in the 'Random Effects' portion: 1.163
+The variance component of the random error is the 'Residual Variance' in the 'Random Effects' portion: 1.196
 
 # 2
 
-The between field variance component is the 'Field Variance' in the 'Random Effects' portion: 1.213
+The between field variance component is the 'Field Variance' in the 'Random Effects' portion: 1.207
 
 # 3
 
@@ -88,7 +88,7 @@ as.matrix(V)
 
 ```{r}
 # Get the contrast matrix to apply directly to the model (coefs pulled from fixef(fit))
-L <- matrix(c(0, 1, 0, 0), nrow = 1)
+L <- matrix(c(0, 1, 0, 0, 0, 0), nrow = 1)
 colnames(L) <- names(fixef(fit))
 cultivar_test <- glht(fit, linfct = L)
 summary(cultivar_test)
@@ -100,8 +100,8 @@ No, the effect is not significant.
 
 ```{r}
 L <- matrix(c(
-  0, 0, 1, 0,  # Row 1: Tests if soil2 = 0
-  0, 0, 0, 1   # Row 2: Tests if soil3 = 0
+  0, 0, 1, 0, 0, 0, # Row 1: Tests if soil2 = 0
+  0, 0, 0, 1, 0, 0 # Row 2: Tests if soil3 = 0
 ), nrow = 2, byrow = TRUE)
 colnames(L) <- names(fixef(fit))
 soil_joint_test <- glht(fit, linfct = L)
@@ -113,13 +113,12 @@ Yes, the effect is significant.
 # 8
 
 ```{r}
-mod_int <- lmer(weight ~ cultivar * soil + (1|field), data = cult)
 L <- matrix(c(
   0, 0, 0, 0, 1, 0,  # Row 1: Tests if cultivarB:soil2 = 0
   0, 0, 0, 0, 0, 1   # Row 2: Tests if cultivarB:soil3 = 0
 ), nrow = 2, byrow = TRUE)
-colnames(L) <- names(fixef(mod_int))
-interaction_test <- glht(mod_int, linfct = L)
+colnames(L) <- names(fixef(fit))
+interaction_test <- glht(fit, linfct = L)
 summary(interaction_test, test = Chisqtest())
 ```
 
@@ -129,18 +128,19 @@ No, there are not significant interactions.
 
 ```{r}
 cult_red <- cult[!(cult$cultivar == 'b' & cult$soil == 'liv'),]
-fit_red <- lmer(weight ~ cultivar + soil + (1|field), data = cult_red)
+fit_red <- lmer(weight ~ cultivar * soil + (1|field), data = cult_red)
 summary(fit_red)
 ```
 
-Random Error: .9934
+Random Error: .9407
 
-Between Field Variance: .742
+Between Field Variance: .7525
 
 # 10 
 
 ```{r}
-cell_means_mod_red <- lmer(weight ~ group - 1 + (1|field), data = cult_red)
+cult_red$group <- droplevels(cult_red$group)
+cell_means_mod_red <- lmer(weight ~ cultivar * soil + (1|field), data = cult_red)
 summary(cell_means_mod_red)
 ```
 
@@ -157,10 +157,55 @@ summary(cell_means_mod_red)
 ```{r}
 cell_means_red_filled <- emmeans(fit_red, ~ cultivar * soil)
 print(cell_means_red_filled)
+
+summary(fit_red)
+
+C <- matrix(c(
+  # Intercept, Cultivar_B, SoilDea, SoilLiv, CultB:SoilDea, CultB:SoilLiv
+  1, 0, 0, 0, 0, 0,  # Group 1 structure
+  1, 1, 0, 0, 0, 0,  # Group 2 structure
+  1, 0, 1, 0, 0, 0,  # Group 3 structure
+  1, 1, 1, 0, 1, 0,  # Group 4 structure
+  1, 0, 0, 1, 0, 0,  # Group 5 structure
+  1, 1, 0, 1, 0, 1
+), nrow = 6, byrow = TRUE)
+
+fit_red_beta <- lm(weight ~ cultivar * soil, data = cult_red)
+betas <- coef(fit_red_beta)
+betas[is.na(betas)] <- 0
+
+# 4. Multiply your C matrix by R's actual coefficients
+mu_check <- C %*% betas
+print(mu_check)
 ```
 
 The estimate for the missing cell is 33.9. When all data is inclued the estimate is 33.525, so this slightly overestimated the mean. However, it is within one standard error so pretty close!
 
 # 12
 
-Using the same output from 11, the Error is .826 which is much larger than the Errors of the other cells. However, the error from Cultivar A, Soil = liv is actually a little higher than the rest at .659, so the missing data in Cultivar B, soil = liv appears to have affected how sure we are about this group as well. 
+```{r}
+vcov_raw <- vcov(fit_red_beta)
+
+vcov_raw <- vcov(fit_red_beta)
+
+vcov_full <- vcov_raw
+vcov_full[, 6] <- 0
+vcov_full[6, ] <- 0
+
+var_cell_means <- C %*% vcov_full %*% t(C)
+
+group_variances <- diag(var_cell_means)
+
+group_standard_errors <- sqrt(group_variances)
+
+# ---- Display the Results ----
+results_table <- data.frame(
+  Group = 1:6,
+  Estimate = mu_check,
+  Variance = group_variances,
+  Std_Error = group_standard_errors
+)
+print(results_table)
+```
+
+The Error for group 6 is much larger than that of the other groups, which is expected since we are imputing data that "doesn't" exist. 
