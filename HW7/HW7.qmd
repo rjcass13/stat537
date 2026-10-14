@@ -70,7 +70,7 @@ RUN;
 
 proc mixed data=HW7 method = REML;
 class Block Treatment;
-model y = Treatment / noint s ddfm=satterth;
+model y = Treatment / s ddfm=satterth;
 random Block;
 run;
 ```
@@ -78,19 +78,19 @@ run;
 ```{r q3}
 sas_sigma2_b <- 30.4196
 sas_sigma2_e <- 27.3545
-sas_trt1_mean <- 107.17
-sas_trt2_mean <- 108.31
+sas_trt_diff <- -1.146
 ```
 
-The estimated output from SAS indicates a $\sigma^2_b$ of `r sas_sigma2_b` and a $\sigma^2_e$ of `r sas_sigma2_e`, which are nowhere near the actual values provided. It also estimated that $\beta_{Trt1}$ = `r sas_trt1_mean` and $\beta_{Trt2}$ = `r sas_trt2_mean`, which does show Treatment 1 being lower than Treatment 2, but not by much (the typical interpretation of Treatment 2 as a difference of Treatment 1 would be $\beta_{Trt2}$ = `r sas_trt2_mean - sas_trt1_mean`).
+The estimated output from SAS indicates a $\sigma^2_b$ of `r sas_sigma2_b` and a $\sigma^2_e$ of `r sas_sigma2_e`, which are nowhere near the actual values provided. It also estimated that the difference in means is `r sas_trt_diff`, which does show Treatment 1 being lower than Treatment 2, but not by much.
 
 # 4
 
 ```{r q4}
-sas_fixed_f_stat <- 1751.09
+sas_fixed_f_stat <- 1.2
+sas_fixed_p_val <- .2762
 ```
 
-The F Statistic provided by the output of SAS for the test of whether there is a significant treatment effect is `r sas_fixed_f_stat`. This gave a P-value WELL under .05 which would indicate that yes, treatment does have a significant effect. 
+The F Statistic provided by the output of SAS for the test of whether there is a significant treatment effect is `r sas_fixed_f_stat`. This gave a P-value of `r sas_fixed_p_val` which implies this is not significant. 
 
 # 5
 
@@ -165,16 +165,16 @@ RUN;
 
 proc mixed data=HW7 method = REML;
 class Block Treatment;
-model y = Treatment / noint s ddfm=satterth;
+model y = Treatment / s ddfm=satterth;
 random Block;
 run;
 ```
 
-In the final Fixed Effects test, the DF changed from 15 in the first analysis to 14.6 in this one. 
+In the final Fixed Effects test, the DF changed from 89 in the first analysis to 69.1 in this one, which roughly matches the loss of 20 data points. 
 
 # 10
 
-The degrees of freedom changed a bit based on how the data were removed. In this case I got a DF of 11 for Treatment 2 and 10.5 for Treatment 1, compared to 10.5 for both in the first analysis. 
+We got the same change of DF as in #9 (89 to 69.1)
 
 # 11
 
@@ -188,12 +188,12 @@ RUN;
 
 proc mixed data=HW7 method = REML;
 class Block Treatment;
-model y = Treatment / noint s ddfm=KenwardRoger;
+model y = Treatment / s ddfm=KenwardRoger;
 random Block;
 run;
 ```
 
-I noticed that the DF for the test of fixed effects jumped up to 20.4, where the previous test used a DF of 14.6. This also impacted the F statistic, though the p-value is still VERY small. 
+I noticed that the F statistic changed from 1.2 to 1.91, though the p-value is still large enough that this is not a significant effect. 
 
 # 12
 
