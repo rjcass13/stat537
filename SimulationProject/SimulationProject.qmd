@@ -1,0 +1,163 @@
+---
+title: "Simulation Project"
+author: "Dallin Mason, Brett Pedersen, RJ Cass"
+format: pdf
+---
+
+```{r init}
+suppressPackageStartupMessages(library('lme4'))
+suppressPackageStartupMessages(library('MASS'))
+suppressPackageStartupMessages(library('glmmTMB')) # For the Unstructured model fit
+```
+
+```{r cov_funcs}
+# Functions to generate the 4 covariances of interest
+gen_ind_cov <- function(pars) {
+    n <- pars$n_trt * pars$n_blk * pars$n_rep
+    diag(rep(pars$s2e, n))
+}
+gen_comp_symm_cov <- function(pars) {
+    # Initial n_rep x n_rep block matrix with just s2b
+    unit_cov <- matrix(pars$s2b, nrow = pars$n_rep, ncol = pars$n_rep)
+    # Add s2e to the diagonals of the block matrix
+    unit_cov <- unit_cov + diag(rep(pars$s2e, pars$n_rep))
+    kronecker(diag(pars$n_trt * pars$n_blk), unit_cov)
+}
+gen_ar1_cov <- function(pars) {
+    times <- 1:pars$n_rep
+    unit_cov <- pars$s2e * (pars$rho^abs(outer(times, times, "-")))
+    kronecker(diag(pars$n_trt * pars$n_blk), unit_cov)
+}
+gen_unstr_cov <- function(pars) {
+    kronecker(diag(pars$n_trt * pars$n_blk), pars$unstr_cov)
+}
+gen_all_cov <- function(pars) {
+    # list(
+    #     Independent = gen_ind_cov(pars), 
+    #     CompoundSymmetric = gen_comp_symm_cov(pars), 
+    #     AR1 = gen_ar1_cov(pars), 
+    #     Unstructured = gen_unstr_cov(pars))
+    list(
+        Independent = gen_ind_cov(pars), 
+        CompoundSymmetric = gen_comp_symm_cov(pars), 
+        AR1 = gen_ar1_cov(pars))
+}
+```
+
+```{r sim_funcs}
+gen_data <- function(pars, trt_means, Sigma) {
+    block <- unlist(lapply(1:(pars$n_trt*pars$n_blk), 
+        \(x) rep(x, times = pars$n_rep)))
+    reps <- rep(1:5, pars$n_trt*pars$n_blk)
+    means <- unlist(lapply(trt_means, 
+        \(x) rep(x, times = pars$n_blk*pars$n_rep)))
+    errors <- mvrnorm(n = 1, 
+        mu = rep(0, pars$n_trt*pars$n_blk*pars$n_rep), Sigma = Sigma)
+    dt <- data.frame(
+        Treatment = means, 
+        Block = as.factor(block),
+        Repetition = as.factor(reps),
+        Response = means + errors)
+}
+
+pick_best_model_fit <- function(dt, cov_list) {
+  # 1. Independent OLS Model
+  mod_ind <- lm(Response ~ Treatment + Block, data = dt)
+  bic_ind <- BIC(mod_ind)
+  
+  # 2. Compound Symmetry Model (via glmmTMB)
+  bic_cs <- tryCatch({
+    mod_comp_symm <- glmmTMB(Response ~ Treatment + cs(0 + Repetition | Block), data = dt)
+    # If it failed to converge or has NaN in standard errors, discard it by assigning Inf
+    if(!is.null(mod_comp_symm$sdr$pdHess) && !mod_comp_symm$sdr$pdHess) Inf else BIC(mod_comp_symm)
+  }, error = function(e) Inf)
+  
+  # 3. Heterogeneous AR1 Model (via glmmTMB)
+  bic_ar1 <- tryCatch({
+    mod_ar1 <- glmmTMB(Response ~ Treatment + ar1(0 + Repetition | Block), data = dt)
+    if(!is.null(mod_ar1$sdr$pdHess) && !mod_ar1$sdr$pdHess) Inf else BIC(mod_ar1)
+  }, error = function(e) Inf)
+  
+  # 4. Unstructured Model with a robust fallback wrapper
+  bic_unstr <- tryCatch({
+    mod_unstr <- glmmTMB(
+      Response ~ Treatment + us(0 + Repetition | Block), 
+      data = dt,
+      control = glmmTMBControl(optimizer = optim, optArgs = list(method = "BFGS"))
+    )
+    
+    # Check if Hessian is valid. If it isn't, calculate forced BIC manually safely
+    if (!is.null(mod_unstr$sdr$pdHess) && mod_unstr$sdr$pdHess) {
+      BIC(mod_unstr)
+    } else {
+      # Safe manual extraction check
+      neg_log_lik <- mod_unstr$fit$objective
+      if (length(neg_log_lik) == 0 || is.na(neg_log_lik)) {
+        Inf # If the math completely exploded, assign Infinity
+      } else {
+        k_params <- length(mod_unstr$fit$par)
+        N_subjects <- length(unique(dt$Block)) # Dynamically count clusters (e.g., 20)
+        -2 * (-neg_log_lik) + k_params * log(N_subjects)
+      }
+    }
+  }, error = function(e) Inf)
+  
+  # Combine into a clean named vector
+  bic_list <- c(Independent = bic_ind, CompoundSymmetric = bic_cs, AR1 = bic_ar1, Unstructured = bic_unstr)
+  
+  # Return a logical vector showing which one is the minimum
+  return(bic_list == min(bic_list, na.rm = TRUE))
+}
+
+run_one_sim <- function(pars, trt_means, Sigma) {
+    sim_data <- gen_data(pars, trt_means, Sigma)
+    pick_best_model_fit(sim_data, cov_list)
+}
+```
+
+```{r sim_params}
+# Initialize simulation parameters
+sim_params <- list(
+    n_trt = 2,  # Treatments
+    n_blk = 10, # Blocks
+    n_rep = 5,  # Repetitions per Treatment/Block combo
+    s2e = 10,   # Sigma^2_e
+    s2b = 12,   # Sigma^2_b
+    rho = 0.8,  # rho for AR1 covariance
+    unstr_cov = matrix(c(
+        15, 10, 12, 12, 2, 
+        10, 18, 5, 13, 8, 
+        12, 5, 20, 5, 3, 
+        12, 13, 5, 15, 10, 
+        2, 8, 3, 10, 12), nrow = 5, byrow = TRUE)
+)
+
+# List of the covariance functions with their names
+cov_list <- list(
+    Independent = gen_ind_cov, 
+    CompoundSymmetric = gen_comp_symm_cov, 
+    AR1 = gen_ar1_cov, 
+    Unstructured = gen_unstr_cov
+)
+```
+
+```{r run_sims}
+#| warning: false
+#| message: false
+
+
+n_sims <- 100
+trt_means <- c(50, 55)
+covs <- gen_all_cov(sim_params)
+
+output <- lapply(covs, \(x) {
+  sims <- sapply(1:n_sims, \(sim) run_one_sim(sim_params, trt_means, x))
+  colSums(t(sims))
+})
+final_dt <- as.data.frame(do.call(rbind, output))
+rownames(final_dt) <- names(covs)
+final_dt
+
+gen_data(sim_params, trt_means, covs[[4]])
+
+```

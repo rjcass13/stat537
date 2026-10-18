@@ -6,7 +6,7 @@ ingotCode <- nimbleCode({
     pressure[i] ~ dnorm(mu[i],sd=serr)
     mu[i] <- metal[metn[i]] + ing[ingot[i]]
   }
-  # Random effects have priors
+  # Fixed effects have priors
   for (i in 1:p){
     metal[i] ~ dnorm(70,sd=100)
   }
@@ -21,6 +21,8 @@ ingotCode <- nimbleCode({
 })
 
 curve(dgamma(x, 1, 1), from = 0, to = 50)
+# He picked the 1.1 because the shape is concave, not starting high
+curve(dgamma(x, 1.1, 1), from = 0, to = 50)
 
 # Define Parameters
 metn <- as.numeric(as.factor(bond$metal))
@@ -44,11 +46,33 @@ ingot.out <- nimbleMCMC(code=ingotCode,
 # Examine the output
 ingot.out$summary$all.chains
 ingot.out$WAIC
+# ICC: subject variance/ (subject + error variance)? Something like that
 library(coda)
 gelman.diag(ingot.out$samples)
 allsamps <- as.matrix(ingot.out$samples)
+
+# Like the Dependence factors to be close to one
 raftery.diag(allsamps)
+
+# Like ESS at least around 5k
 effectiveSize(allsamps)
+
 allsamps[1,]
+
+# Do some comparison plots
 iron <- allsamps[,9]
 plot(density(iron))
+lines(density(allsamps[,8]), col = "blue")
+
+# Trace plot
+plot(allsamps[, 12], type = 'l')
+
+# Can see the long tail
+plot(density(allsamps[, 12]))
+
+# Check how often one metail is great than another
+# Close to .5 implies little difference, 0 or 1 implies likelya difference
+mean(allsamps[,9] - allsamps[,10]>0)
+mean(allsamps[,10] - allsamps[,8]>0)
+
+

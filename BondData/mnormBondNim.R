@@ -29,6 +29,8 @@ mnormConsts <- list(nIng=nIng,nTmt=nTmt,
                     trt=treatment,
                     s=s)
 mnormData <- list(y=resp)
+
+# If the NIMBLE isn't working very well, try initializing it at a better spot
 mnormBond.out <- nimbleMCMC(code=mnormBondCode,
                         data=mnormData,
                         constants=mnormConsts,

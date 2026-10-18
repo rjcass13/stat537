@@ -1,0 +1,420 @@
+---
+title: "HW 8"
+author: "RJ Cass"
+format: pdf
+---
+
+We will continue with our examination of the cultivar data, this time focusing on variance components. The models we have examined thus far have all had two variance components, $\sigma^2_{error}$ and $\sigma^2_{field}$. It is not unreasonable to think that there may be other variance components of interest. I look at interactions between fixed and random effects as random, and so we might consider $\sigma^2_{field×cultivar}$ and $\sigma^2_{field×inoculant}$. In this assignment we will focus on finding a model with appropriate variance components included. Use your cell means model for the fixed effects, and keep the fixed effects the same in all the models you will consider in this assignment. I’m assuming you will use lmer for all the models using the frequentist paradigm, and when I want a Bayesian analysis I will ask for it explicitly.
+
+```{r init}
+suppressPackageStartupMessages(library('dplyr'))
+suppressPackageStartupMessages(library('lme4'))
+suppressPackageStartupMessages(library('multcomp'))
+suppressPackageStartupMessages(library('emmeans'))
+suppressPackageStartupMessages(library('nimble'))
+suppressPackageStartupMessages(library('coda'))
+
+cult <- read.table('cult_data.dat', header = FALSE)
+colnames(cult) <- c('field', 'cultivar', 'soil', 'weight')
+cult <- cult %>% 
+  group_by(soil, cultivar) %>% 
+  mutate(group_sc = cur_group_id()) %>% 
+  ungroup()
+cult <- cult %>% 
+  group_by(field, cultivar) %>% 
+  mutate(group_fc = cur_group_id()) %>% 
+  ungroup()
+cult <- cult %>% 
+  group_by(field, soil) %>% 
+  mutate(group_fs = cur_group_id()) %>% 
+  ungroup()
+cult <- cult %>% 
+  mutate(across(c(field, cultivar, soil, group_sc, group_fc, group_fs), as.factor))
+```
+
+# 1
+
+#### Redo the model we have been using with only variance components for $\sigma^2_{error}$ and $\sigma^2_{field}$. What are thevpoint estimates for these two quantities?
+
+```{r q1}
+fit <- lmer(weight ~  cultivar * soil + (1|field), data=cult)
+q1_s2_field <- round(as.data.frame(VarCorr(fit))$vcov[1], 3)
+q1_s2_error <- round(as.data.frame(VarCorr(fit))$vcov[2], 3)
+```
+
+Pulling from Summary, we get $\sigma^2_{field} = `r q1_s2_field`$ and $\sigma^2_{error} = `r q1_s2_error`$
+
+# 2
+
+#### What are the AIC and BIC for this model?
+
+```{r q2}
+q2_aic <- round(AIC(fit), 3)
+q2_bic <- round(BIC(fit), 3)
+```
+
+AIC: `r q2_aic`
+
+BIC: `r q2_bic`
+
+# 3
+
+#### Now use Nimble to get estimates for the variances. Use gamma priors with shape=1.1 and rate=1 for both variance components. What are the point estimates for the two variance components?
+
+```{r q3}
+set.seed(1337)
+q3_cult_code <- nimbleCode({
+  for (i in 1:N){
+    weight[i] ~ dnorm(mu[i], sd = s_err)
+    mu[i] <- cult[cult_n[i]] + 
+             soil[soil_n[i]] + 
+             soil_cult[soil_cult_n[i]] + 
+             field[field_n[i]]
+  }
+  # Fixed effects have priors
+  for (i in 1:n_cult){
+    cult[i] ~ dnorm(30, sd=100)
+  }
+  # Soil fixed effects priors (s = number of soil types)
+  for (i in 1:n_soil){
+    soil[i] ~ dnorm(0, sd = 100)
+  }
+  # Soil x Cultivar fixed interaction priors (m = unique soil-cultivar combinations)
+  for (i in 1:n_soil_cult){
+    soil_cult[i] ~ dnorm(0, sd = 100)
+  }
+  # Random effects have hyperpriors
+  # Most important thing for random effect is to get the right variance
+  # We don't want that variance to be fixed, allow it to explore it
+  for (i in 1:n_field){
+    field[i] ~ dnorm(0, sd = s_field)
+  }
+  s_err ~ dgamma(1.1,.1)
+  s_field ~ dgamma(1.1,.1)
+})
+
+# Define Parameters
+cult_n <- as.numeric(cult$cultivar)
+soil_n <- as.numeric(cult$soil)
+field_n <- as.numeric(cult$field)
+soil_cult_n <- as.numeric(cult$group_sc)
+N <- length(cult_n)
+n_cult <- 2
+n_soil <- 3
+n_soil_cult <- 6
+n_field <- 4
+cult_consts <- list(
+  n_cult = n_cult, 
+  n_soil = n_soil,
+  n_soil_cult = n_soil_cult,
+  n_field = n_field, 
+  N = N, 
+  field_n = field_n, 
+  cult_n = cult_n, 
+  soil_n = soil_n, 
+  soil_cult_n = soil_cult_n)
+cult_data <- list(weight=cult$weight)
+
+# Run the Nimble code
+q3_cult_out <- nimbleMCMC(code=q3_cult_code,
+                         constants = cult_consts,
+                         data=cult_data,
+                         nchains=5,niter=202000,
+                         nburnin=2000,thin=100,
+                         samplesAsCodaMCMC = TRUE,
+                         summary = TRUE,WAIC = TRUE,
+                         monitors=c('cult', 'soil', 'soil_cult', 'field','s_err','s_field'))
+
+q3_est <- as.data.frame(q3_cult_out$summary$all.chains)
+q3_est$name <- rownames(q3_est)
+q3_s2_field <- round(q3_est[q3_est$name == 's_field',1], 3)
+q3_s2_error <- round(q3_est[q3_est$name == 's_err',1], 3)
+```
+
+From this simulation, we get $\sigma^2_{field} = `r q3_s2_field`$ and $\sigma^2_{error} = `r q3_s2_error`$.
+
+# 4
+
+#### What is the WAIC for this model?
+
+```{r q4}
+q4_waic <- round(q3_cult_out$WAIC$WAIC, 3)
+```
+
+We got a WAIC of `r q4_waic`.
+
+# 5
+
+#### Now add a variance component for $\sigma^2_{field×cultivar}$ . This may take adding a column in the data set. What are the point estimates for the three variance components?
+
+```{r q5}
+fit_int <- lmer(weight ~  cultivar * soil + (1|field) + (1|field:cultivar), data=cult)
+
+covs <- as.data.frame(VarCorr(fit_int))$vcov
+q5_s2_field_cult <- round(covs[1], 3)
+q5_s2_field <- round(covs[2], 3)
+q5_s2_error <- round(covs[3], 3)
+```
+
+We now get the following estimates for the 3 variances:
+
+$\sigma^2_{cult \times field} = `r q5_s2_field_cult`$
+$\sigma^2_{field} = `r q5_s2_field`$
+$\sigma^2_{error} = `r q5_s2_error`$
+
+# 6
+
+#### What are the AIC and BIC for this model?
+
+```{r q6}
+q6_aic <- round(AIC(fit_int), 3)
+q6_bic <- round(BIC(fit_int), 3)
+```
+
+AIC: `r q6_aic`
+
+BIC: `r q6_bic`
+
+# 7
+
+#### Using a likelihood ratio test and the ML models, which model is better?
+
+```{r q7}
+anova(fit, fit_int)
+```
+
+Performing the likelihood ratio test (using the ANOVA function automatically refits using the ML method), we see that the model with the interaction is significantly better. 
+
+
+# 8
+
+#### Now use Nimble to get estimates for the model in number 5. What are the point estimates for the three variance components?
+
+```{r q8}
+set.seed(1337)
+q8_cult_code <- nimbleCode({
+  for (i in 1:N){
+    weight[i] ~ dnorm(mu[i], sd = s_err)
+    mu[i] <- cult[cult_n[i]] + 
+             soil[soil_n[i]] + 
+             soil_cult[soil_cult_n[i]] + 
+             field[field_n[i]] + 
+             field_cult[field_cult_n[i]]
+  }
+  # Fixed effects have priors
+  for (i in 1:n_cult){
+    cult[i] ~ dnorm(30, sd=100)
+  }
+  # Soil fixed effects priors (s = number of soil types)
+  for (i in 1:n_soil){
+    soil[i] ~ dnorm(0, sd = 100)
+  }
+  # Soil x Cultivar fixed interaction priors (m = unique soil-cultivar combinations)
+  for (i in 1:n_soil_cult){
+    soil_cult[i] ~ dnorm(0, sd = 100)
+  }
+  # Random effects have hyperpriors
+  # Most important thing for random effect is to get the right variance
+  # We don't want that variance to be fixed, allow it to explore it
+  for (i in 1:n_field){
+    field[i] ~ dnorm(0, sd = s_field)
+  }
+  for (i in 1:n_field_cult){
+    field_cult[i] ~ dnorm(0, sd = s_field_cult)
+  }
+  s_err ~ dgamma(1.1,.1)
+  s_field ~ dgamma(1.1,.1)
+  s_field_cult ~ dgamma(1.1,.1)
+})
+
+# Define Parameters
+cult_n <- as.numeric(cult$cultivar)
+soil_n <- as.numeric(cult$soil)
+field_n <- as.numeric(cult$field)
+soil_cult_n <- as.numeric(cult$group_sc)
+field_cult_n <- as.numeric(cult$group_fc)
+N <- length(cult_n)
+n_cult <- 2
+n_soil <- 3
+n_soil_cult <- 6
+n_field <- 4
+n_field_cult <- 8
+cult_consts <- list(
+  n_cult = n_cult, 
+  n_soil = n_soil,
+  n_soil_cult = n_soil_cult,
+  n_field = n_field, 
+  n_field_cult = n_field_cult,
+  N = N, 
+  field_n = field_n, 
+  cult_n = cult_n, 
+  soil_n = soil_n, 
+  soil_cult_n = soil_cult_n,
+  field_cult_n = field_cult_n)
+cult_data <- list(weight=cult$weight)
+
+# Run the Nimble code
+q8_cult_out <- nimbleMCMC(code=q8_cult_code,
+                         constants = cult_consts,
+                         data=cult_data,
+                         nchains=5,niter=202000,
+                         nburnin=2000,thin=100,
+                         samplesAsCodaMCMC = TRUE,
+                         summary = TRUE,WAIC = TRUE,
+                         monitors=c('cult', 'soil', 'soil_cult', 'field', 'field_cult', 's_err','s_field', 's_field_cult'))
+
+q8_est <- as.data.frame(q8_cult_out$summary$all.chains)
+q8_est$name <- rownames(q8_est)
+q8_s2_field_cult <- round(q8_est[q8_est$name == 's_field_cult',1], 3)
+q8_s2_field <- round(q8_est[q8_est$name == 's_field',1], 3)
+q8_s2_error <- round(q8_est[q8_est$name == 's_err',1], 3)
+```
+
+We now get the following estimates for the 3 variances:
+
+$\sigma^2_{cult \times field} = `r q8_s2_field_cult`$
+$\sigma^2_{field} = `r q8_s2_field`$
+$\sigma^2_{error} = `r q8_s2_error`$
+
+# 9
+
+#### What is the WAIC for this model?
+
+```{r q9}
+q9_waic <- round(q8_cult_out$WAIC$WAIC, 3)
+```
+
+We got a WAIC of `r q9_waic`.
+
+# 10
+
+#### To the model with all three variance components, add $\sigma^2_{field×inoculant}$. What happens?
+
+```{r q10} 
+fit_int_q10 <- lmer(weight ~  cultivar * soil + (1|field) + (1|field:cultivar) + (1|field:soil), data=cult)
+```
+
+This gives a singularity issue because now we only have 1 repetition per 'cell', meainng we can not actually estimate anything.
+
+# 11
+
+#### To the model with only $\sigma^2_{error}$and $\sigma^2_{field}$, add $\sigma^2_{field×inoculant}$. What happens?
+
+```{r q11}
+fit_int_q11 <- lmer(weight ~  cultivar * soil + (1|field) + (1|field:soil), data=cult)
+```
+
+We again get the singularity issue because again, including the field/soil interaction with the soil and cultivar means we can't estimate the variance within groups. 
+
+# 12
+
+#### Now use Nimble to get estimates for the model in number 11. What are the point estimates for the three variance components?
+
+```{r q12}
+set.seed(1337)
+q12_cult_code <- nimbleCode({
+  for (i in 1:N){
+    weight[i] ~ dnorm(mu[i], sd = s_err)
+    mu[i] <- cult[cult_n[i]] + 
+             soil[soil_n[i]] + 
+             soil_cult[soil_cult_n[i]] + 
+             field[field_n[i]] + 
+             field_soil[field_soil_n[i]]
+  }
+  # Fixed effects have priors
+  for (i in 1:n_cult){
+    cult[i] ~ dnorm(30, sd=100)
+  }
+  # Soil fixed effects priors (s = number of soil types)
+  for (i in 1:n_soil){
+    soil[i] ~ dnorm(0, sd = 100)
+  }
+  # Soil x Cultivar fixed interaction priors (m = unique soil-cultivar combinations)
+  for (i in 1:n_soil_cult){
+    soil_cult[i] ~ dnorm(0, sd = 100)
+  }
+  # Random effects have hyperpriors
+  # Most important thing for random effect is to get the right variance
+  # We don't want that variance to be fixed, allow it to explore it
+  for (i in 1:n_field){
+    field[i] ~ dnorm(0, sd = s_field)
+  }
+  for (i in 1:n_field_soil) {
+    field_soil[i] ~ dnorm(0, sd = s_field_soil)
+  }
+  s_err ~ dgamma(1.1,.1)
+  s_field ~ dgamma(1.1,.1)
+  s_field_soil ~ dgamma(1.1,.1)
+})
+
+# Define Parameters
+cult_n <- as.numeric(cult$cultivar)
+soil_n <- as.numeric(cult$soil)
+field_n <- as.numeric(cult$field)
+soil_cult_n <- as.numeric(cult$group_sc)
+field_soil_n <- as.numeric(cult$group_fs)
+N <- length(cult_n)
+n_cult <- 2
+n_soil <- 3
+n_soil_cult <- 6
+n_field <- 4
+n_field_soil <- 12
+cult_consts <- list(
+  n_cult = n_cult, 
+  n_soil = n_soil,
+  n_soil_cult = n_soil_cult,
+  n_field = n_field, 
+  n_field_soil = n_field_soil,
+  N = N, 
+  field_n = field_n, 
+  cult_n = cult_n, 
+  soil_n = soil_n, 
+  soil_cult_n = soil_cult_n,
+  field_soil_n = field_soil_n)
+cult_data <- list(weight=cult$weight)
+
+# Run the Nimble code
+q12_cult_out <- nimbleMCMC(code=q12_cult_code,
+                         constants = cult_consts,
+                         data=cult_data,
+                         nchains=5,niter=202000,
+                         nburnin=2000,thin=100,
+                         samplesAsCodaMCMC = TRUE,
+                         summary = TRUE,WAIC = TRUE,
+                         monitors=c('cult', 'soil', 'soil_cult', 'field', 'field_soil', 's_err','s_field', 's_field_soil'))
+
+q12_est <- as.data.frame(q12_cult_out$summary$all.chains)
+q12_est$name <- rownames(q12_est)
+q12_s2_field_soil <- round(q12_est[q12_est$name == 's_field_soil',1], 3)
+q12_s2_field <- round(q12_est[q12_est$name == 's_field',1], 3)
+q12_s2_error <- round(q12_est[q12_est$name == 's_err',1], 3)
+```
+
+We now get the following estimates for the 3 variances:
+
+$\sigma^2_{soil \times field} = `r q12_s2_field_soil`$
+$\sigma^2_{field} = `r q12_s2_field`$
+$\sigma^2_{error} = `r q12_s2_error`$
+
+# 13
+
+#### What is the WAIC for this model?
+
+```{r q13}
+q13_waic <- round(q12_cult_out$WAIC$WAIC, 3)
+```
+
+We got a WAIC of `r q13_waic`.
+
+# 14
+
+#### What happens to the convergence diagnostics for the model in number 10?
+
+```{r q14}
+allsamps <- as.matrix(q12_cult_out$samples)
+raftery.diag(allsamps)
+
+effectiveSize(allsamps)
+```
+
+The depdence factors blow up on all of the soil terms. We also get very small effective sample sizes for the soil terms. 
