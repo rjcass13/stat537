@@ -1,0 +1,8 @@
+default.knots <- function(x,num.knots)
+{
+   if (missing(num.knots))
+      num.knots <- max(5,min(floor(length(unique(x))/4),35))
+
+   return(quantile(unique(x),seq(0,1,length=
+                  (num.knots+2))[-c(1,(num.knots+2))]))
+}

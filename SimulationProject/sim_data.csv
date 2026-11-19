@@ -1,0 +1,17 @@
+"GeneratingModel","Trt2","Drop20","Ind","CS","AR1","Unstr","IndRej","CSRej","AR1Rej","UnstrRej","IndFail","CSFail","AR1Fail","UnstrFail"
+"Independent",50,FALSE,464,16,20,0,20,3,1,0,0,0,0,0
+"CompoundSymmetric",50,FALSE,0,480,20,0,0,32,1,0,0,0,0,0
+"AR1",50,FALSE,0,4,496,0,0,0,28,0,0,0,0,0
+"Unstructured",50,FALSE,0,180,0,320,0,12,0,62,0,0,0,0
+"Independent",50,TRUE,463,16,21,0,26,2,1,0,0,0,0,191
+"CompoundSymmetric",50,TRUE,5,471,24,0,4,30,2,0,0,0,0,214
+"AR1",50,TRUE,0,15,485,0,0,0,27,0,0,0,0,271
+"Unstructured",50,TRUE,3,497,0,0,1,33,0,0,0,0,0,261
+"Independent",55,FALSE,471,13,16,0,471,13,16,0,0,0,0,0
+"CompoundSymmetric",55,FALSE,0,479,21,0,0,410,19,0,0,0,0,0
+"AR1",55,FALSE,0,3,497,0,0,3,490,0,0,0,0,0
+"Unstructured",55,FALSE,0,179,0,321,0,166,0,320,0,0,0,0
+"Independent",55,TRUE,470,13,17,0,470,13,17,0,0,0,0,208
+"CompoundSymmetric",55,TRUE,3,471,26,0,3,380,20,0,0,0,0,234
+"AR1",55,TRUE,0,13,487,0,0,12,474,0,0,0,0,229
+"Unstructured",55,TRUE,7,490,3,0,7,458,1,0,0,0,0,264

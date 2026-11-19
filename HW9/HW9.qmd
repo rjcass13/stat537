@@ -1,0 +1,224 @@
+---
+title: "Homework 9"
+author: "RJ Cass"
+format: pdf
+---
+
+```{r init}
+suppressPackageStartupMessages(library('lme4'))
+suppressPackageStartupMessages(library('knitr'))
+```
+
+```{r funcs}
+gen_data <- function(treat_means, sig2_e, sig2_b, n_treat, n_block, n_samp) {
+    u <- rnorm(n_block, 0, sqrt(sig2_b))
+    treatment <- factor(paste0("Trt_", 1:n_treat))
+    block <- factor(paste0("Blk_", 1:n_block))
+    reps <- 1:n_samp
+
+    dt <- expand.grid(Rep = reps, Treatment = treatment, Block = block)
+
+    # 2. Extract numeric indices to map parameters directly to rows
+    # trt_idx maps "Trt_1" to 1, "Trt_2" to 2, etc.
+    # blk_idx maps "Blk_1" to 1, "Blk_2" to 2, etc.
+    trt_idx <- as.numeric(dt$Treatment)
+    blk_idx <- as.numeric(dt$Block)
+
+    # 3. Generate y in a perfectly vectorized layout matching each row
+    # treat_means[trt_idx] assigns the correct fixed treatment mean to each row
+    # u[blk_idx] assigns the correct random block effect to each row
+    n_total <- nrow(dt)
+    dt$y <- treat_means[trt_idx] + u[blk_idx] + rnorm(n_total, 0, sqrt(sig2_e))
+
+    dt <- dt[order(dt$Block), ]
+
+    # 4. Clean up columns to match your preferred format
+    dt <- dt[, c("y", "Block", "Treatment")]
+
+    return(list(data = dt, true_u = u))
+}
+
+calc_ests_manual <- function(n_block, n_samp, sig2_b, sig2_e, y) {
+    X <- as.matrix(rep(1, length(y)), ncol = 1, byrow = TRUE)
+    Z <- kronecker(diag(n_block), rep(1, n_samp))
+    G <- sig2_b*diag(n_block)
+    R <- sig2_e*diag(length(y))
+
+    Sigma <- Z %*% G %*% t(Z) + R
+    Sigma_Inv <- solve(Sigma)
+
+    var_beta_hat <- solve(t(X) %*% Sigma_Inv %*% X)
+    beta_hat <- var_beta_hat %*% t(X) %*% Sigma_Inv %*% y
+    u_hat <- G %*% t(Z) %*% Sigma_Inv %*% (y - X %*% beta_hat)
+    var_u_hat <- solve(t(Z) %*% solve(R) %*% Z + solve(G)) + 
+        G %*% t(Z) %*% Sigma_Inv %*% X %*% var_beta_hat %*% t(X) %*% Sigma_Inv %*% Z %*% G
+
+    return(list(
+        method = "Manual",
+        beta_hat = beta_hat, 
+        u_hat = u_hat,
+        var_beta_hat = var_beta_hat, 
+        var_u_hat = var_u_hat
+    ))
+}
+
+calc_ests_reml <- function(n_block, n_samp, dt) {
+    # Fit REML
+    model_reml <- lmer(y ~ (1 | Block), data = dt, REML = TRUE)
+
+    # Extract the estimated variance components
+    var_comp <- as.data.frame(VarCorr(model_reml))
+    sig2_hat_b <- var_comp$vcov[1] # Variance of random effect
+    sig2_hat_e <- var_comp$vcov[2] # Residual variance
+
+    y <- dt$y
+    X <- as.matrix(rep(1, length(y)), ncol = 1, byrow = TRUE)
+    Z <- kronecker(diag(n_block), rep(1, n_samp))
+    G <- sig2_hat_b*diag(n_block)
+    R <- sig2_hat_e*diag(nrow(dt))
+
+    Sigma <- Z %*% G %*% t(Z) + R
+    Sigma_Inv <- solve(Sigma)
+
+    var_beta_hat <- solve(t(X) %*% Sigma_Inv %*% X)
+    beta_hat <- var_beta_hat %*% t(X) %*% Sigma_Inv %*% y
+    u_hat <- G %*% t(Z) %*% Sigma_Inv %*% (y - X %*% beta_hat)
+    var_u_hat <- solve(t(Z) %*% solve(R) %*% Z + solve(G)) + 
+        G %*% t(Z) %*% Sigma_Inv %*% X %*% var_beta_hat %*% t(X) %*% Sigma_Inv %*% Z %*% G
+
+    return(list(
+        method = "REML",
+        beta_hat = beta_hat, 
+        u_hat = u_hat,
+        var_beta_hat = var_beta_hat, 
+        var_u_hat = var_u_hat
+    ))
+}
+
+run_one_sim <- function(treat_means, sig2_e, sig2_b, n_treat, n_block, n_samp) {
+    sim_data <- gen_data(treat_means, sig2_e, sig2_b, n_treat, n_block, n_samp)
+    dt <- sim_data$data
+    u <- sim_data$true_u
+    est_manual <- calc_ests_manual(n_block, n_samp, sig2_b, sig2_e, dt$y)
+    est_reml <- calc_ests_reml(n_block, n_samp, dt)
+    return(list(True_u = u, Manual = est_manual, REML = est_reml))
+}
+```
+
+## 1.
+
+#### Generate a data set with two random effects, block and error, and one fixed effect, intercept. Let $\beta_0$ = 50, $\sigma^2_{block}$ = 64, and $\sigma^2_{error}$ = 25. Let’s use 10 blocks with 8 observations in each block.
+
+This is an example generation. Actual data generation is performed in section 4. 
+
+```{r q1}
+set.seed(1337)
+treat_means <- c(50)
+sig2_e <- 25
+sig2_b <- 64
+n_treat <- 1
+n_block <- 10
+n_samp <- 8
+u <- rnorm(n_block, 0, sqrt(sig2_b))
+
+sim_data <- gen_data(treat_means, sig2_e, sig2_b, n_treat, n_block, n_samp)
+dt <- sim_data$data
+```
+
+## 2.
+
+#### Since you know G and R, you can find $\hat{\beta}$ and $\hat{u}$ using the data you generated and the known variance components. You can also compute the variances of these estimators using the appropriate formulas with the known variance components. (V($\beta$) =$(X'V^{-1}X)^{−1}$ and V($\hat{u} − u$) = $(ZR^{-1}Z+ G^{-1})^{-1} + GZ'V^{−1}X(X'V^{−1}X)^{−1}X'V^{−1}ZG$.)
+
+This is an example generation. Actual data generation is performed in section 4. 
+
+```{r q2}
+manual_ests <- calc_ests_manual(n_block, n_samp, sig2_b, sig2_e, dt$y)
+```
+
+## 3.
+
+#### Now, using either SAS® or R, and choosing one of either ML or REML, find $\hat{R}$ and $\hat{G}$. Using these estimates, recompute $\hat{\beta}$, $\hat{u}$, $\hat{V}(\hat{\beta})$, and $\hat{V}(\hat{u}-u)$.
+
+This is an example generation. Actual data generation is performed in section 4. 
+
+```{r q3}
+reml_ests <- calc_ests_reml(n_block, n_samp, dt)
+```
+
+## 4.
+
+#### Now generate 100 data sets like the one in number 1. For each data set compute $\hat{\beta}$, $\hat{u}$, $\hat{V}(\hat{\beta})$, and $\hat{V}(\hat{u}-u)$
+
+```{r q4}
+set.seed(1337)
+treat_means <- c(50)
+sig2_e <- 25
+sig2_b <- 64
+n_treat <- 1
+n_block <- 10
+n_samp <- 8
+n_sim <- 100
+
+sim_results <- replicate(n_sim, run_one_sim(treat_means, sig2_e, sig2_b, n_treat, n_block, n_samp), simplify = FALSE)
+```
+
+## 5.
+
+#### Compare the averages of these estimates with the known values. Comment on whether it looks like the estimators ($\hat{\beta}$, $\hat{u}$, $\hat{V}(\hat{\beta})$, and $\hat{V}(\hat{u}-u)$) appear to be unbiased.
+
+```{r q5_betas}
+mean_manual_beta_hat <- round(mean(sapply(sim_results, function(sim) sim$Manual$beta_hat)), 2)
+mean_reml_beta_hats <- round(mean(sapply(sim_results, function(sim) sim$REML$beta_hat)), 2)
+```
+
+Examining the $\hat{\beta}$s, we get average values from the Manual and REML methods of `r mean_manual_beta_hat` and `r mean_reml_beta_hats` respectively. These values are the same between the two methods (as expected), and they appear unbiased. 
+
+```{r q5_var_betas}
+mean_manual_var_beta_hat <- round(mean(sapply(sim_results, function(sim) sim$Manual$var_beta_hat)), 2)
+
+actual_var_manual_beta_hats <- round(var(sapply(sim_results, function(sim) sim$Manual$beta_hat)), 2)
+actual_var_reml_beta_hats <- round(var(sapply(sim_results, function(sim) sim$REML$beta_hat)), 2)
+mean_reml_var_beta_hats <- round(mean(sapply(sim_results, function(sim) sim$REML$var_beta_hat)), 2)
+```
+
+Using the first principles method, we'd expect the variance of the $\hat{\beta}$s to be `r mean_manual_var_beta_hat`. This is a deterministic value so it is also the calculated variance value in each iteration of the manual method. Comparing this to the variance of the esetimated $\hat{\beta}$s in the manual method, we got a value of `r actual_var_manual_beta_hats`. This is unbiased. 
+
+Now looking at the REML method, across the simulation we got a variance of the $\hat{\beta}$s estimates of `r actual_var_reml_beta_hats`. Comparing this to the average of the estimates for $V(\hat{\beta})$, we get a value of `r mean_reml_var_beta_hats`. Still within the same ballpark. According to the internet, this should theoretically be underestimating, but maybe due to my sample size it isn't yet. 
+
+```{r q5_us}
+manual_u_hats <- sapply(sim_results, function(sim) sim$Manual$u_hat)
+reml_u_hats <- sapply(sim_results, function(sim) sim$REML$u_hat)
+mean_manual_u_hats <- as.data.frame(apply(manual_u_hats, 1, mean))
+mean_reml_u_hats <- as.data.frame(apply(reml_u_hats, 1, mean))
+
+u_hats <- data.frame(mean_manual_u_hats, mean_reml_u_hats)
+colnames(u_hats) <- c("Manual", "REML")
+kable(u_hats)
+```
+
+Looking at the average $\hat{u}$ estimates from the two methods, both of them are pretty close to 0. However, given our applied $\sigma^2_b$ of `r sig2_b`, we would normlly expect these values to be much higher. The fact that these averages are so close to 0 is due to shrinkage which is the whole idea of empirical bayes where the u's shrink towards the expected mean. These are unbiased estimates. 
+
+```{r q5_u_vars}
+# 1. Extract the actual prediction errors across all 100 runs (forcing a matrix structure)
+empirical_errors <- sapply(1:100, function(i) {
+    sim_results[[i]]$Manual$u_hat - sim_results[[i]]$True_u
+})
+
+# 2. Square the matrix of errors element-by-element
+squared_errors <- empirical_errors^2
+
+# 3. Average across rows (simulations) to get the mean squared error per block, 
+# then take the global mean across all 10 blocks
+empirical_var_u_error <- mean(rowMeans(squared_errors))
+
+# 3. Pull your average theoretical matrix diagonals
+mean_theoretical_var_u_manual <- mean(sapply(sim_results, function(sim) mean(diag(sim$Manual$var_u_hat))))
+mean_theoretical_var_u_reml   <- mean(sapply(sim_results, function(sim) mean(diag(sim$REML$var_u_hat))))
+
+# 4. Compare for bias evaluation
+cat("Actual Observed Error Variance (Empirical Target):", round(empirical_var_u_error, 4), "\n",
+    "Average Manual Theoretical Formula Value:         ", round(mean_theoretical_var_u_manual, 4), "\n",
+    "Average REML Theoretical Formula Value:           ", round(mean_theoretical_var_u_reml, 4), "\n")
+```
+
+These are also within the expected range for the variances, so I would say they are unbiased. 

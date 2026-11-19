@@ -308,7 +308,7 @@ We again get the singularity issue because again, including the field/soil inter
 
 # 12
 
-#### Now use Nimble to get estimates for the model in number 11. What are the point estimates for the three variance components?
+#### Now use Nimble to get estimates for the model in number 10. What are the point estimates for the three variance components?
 
 ```{r q12}
 set.seed(1337)
@@ -319,7 +319,8 @@ q12_cult_code <- nimbleCode({
              soil[soil_n[i]] + 
              soil_cult[soil_cult_n[i]] + 
              field[field_n[i]] + 
-             field_soil[field_soil_n[i]]
+             field_soil[field_soil_n[i]] + 
+             field_cult[field_cult_n[i]]
   }
   # Fixed effects have priors
   for (i in 1:n_cult){
@@ -342,9 +343,13 @@ q12_cult_code <- nimbleCode({
   for (i in 1:n_field_soil) {
     field_soil[i] ~ dnorm(0, sd = s_field_soil)
   }
+  for (i in 1:n_field_cult) {
+    field_cult[i] ~ dnorm(0, sd = s_field_cult)
+  }
   s_err ~ dgamma(1.1,.1)
   s_field ~ dgamma(1.1,.1)
   s_field_soil ~ dgamma(1.1,.1)
+  s_field_cult ~ dgamma(1.1,.1)
 })
 
 # Define Parameters
@@ -353,24 +358,28 @@ soil_n <- as.numeric(cult$soil)
 field_n <- as.numeric(cult$field)
 soil_cult_n <- as.numeric(cult$group_sc)
 field_soil_n <- as.numeric(cult$group_fs)
+field_cult_n <- as.numeric(cult$group_fc)
 N <- length(cult_n)
 n_cult <- 2
 n_soil <- 3
 n_soil_cult <- 6
 n_field <- 4
 n_field_soil <- 12
+n_field_cullt <- 8
 cult_consts <- list(
   n_cult = n_cult, 
   n_soil = n_soil,
   n_soil_cult = n_soil_cult,
   n_field = n_field, 
   n_field_soil = n_field_soil,
+  n_field_cult = n_field_cult,
   N = N, 
   field_n = field_n, 
   cult_n = cult_n, 
   soil_n = soil_n, 
   soil_cult_n = soil_cult_n,
-  field_soil_n = field_soil_n)
+  field_soil_n = field_soil_n, 
+  field_cult_n = field_cult_n)
 cult_data <- list(weight=cult$weight)
 
 # Run the Nimble code
@@ -381,11 +390,12 @@ q12_cult_out <- nimbleMCMC(code=q12_cult_code,
                          nburnin=2000,thin=100,
                          samplesAsCodaMCMC = TRUE,
                          summary = TRUE,WAIC = TRUE,
-                         monitors=c('cult', 'soil', 'soil_cult', 'field', 'field_soil', 's_err','s_field', 's_field_soil'))
+                         monitors=c('cult', 'soil', 'soil_cult', 'field', 'field_soil', 'field_cult', 's_err','s_field', 's_field_soil', 's_field_cult'))
 
 q12_est <- as.data.frame(q12_cult_out$summary$all.chains)
 q12_est$name <- rownames(q12_est)
 q12_s2_field_soil <- round(q12_est[q12_est$name == 's_field_soil',1], 3)
+q12_s2_field_cult <- round(q12_est[q12_est$name == 's_field_cult',1], 3)
 q12_s2_field <- round(q12_est[q12_est$name == 's_field',1], 3)
 q12_s2_error <- round(q12_est[q12_est$name == 's_err',1], 3)
 ```
@@ -393,6 +403,7 @@ q12_s2_error <- round(q12_est[q12_est$name == 's_err',1], 3)
 We now get the following estimates for the 3 variances:
 
 $\sigma^2_{soil \times field} = `r q12_s2_field_soil`$
+$\sigma^2_{cult \times field} = `r q12_s2_field_cult`$
 $\sigma^2_{field} = `r q12_s2_field`$
 $\sigma^2_{error} = `r q12_s2_error`$
 

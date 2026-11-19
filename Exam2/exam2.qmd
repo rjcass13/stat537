@@ -1,0 +1,471 @@
+---
+title: "Exam 2"
+author: "RJ Cass"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+format: pdf
+header-includes:
+  - \usepackage{pdfpages}
+---
+
+```{r init, include=FALSE}
+suppressPackageStartupMessages(library('dplyr'))
+suppressPackageStartupMessages(library('lme4'))
+suppressPackageStartupMessages(library('lmerTest'))
+suppressPackageStartupMessages(library('nimble'))
+suppressPackageStartupMessages(library('coda'))
+suppressPackageStartupMessages(library('knitr'))
+suppressPackageStartupMessages(library('ggplot2'))
+knitr::opts_chunk$set(echo = TRUE)
+
+dt <- read.table('mltloc.dat', header = TRUE)
+# Export the data as csv to use in SAS
+# write.csv(dt, "mltloc.csv", row.names = FALSE)
+dt$loc_block <- paste0(dt$loc, dt$block)
+dt$trt_loc <- interaction(dt$trt, dt$loc, sep = "_")
+dt <- dt %>%
+    mutate(across(.cols = c('obs', 'loc', 'trt', 'loc_block', 'block', 'trt_loc'), .fns = as.factor))
+```
+
+# 1. Fit a mixed model in R assuming there three variance components (locations, blocks and error). Use the REML likelihood.  What is the point estimate of $\sigma^2_{loc}$?
+
+```{r q1}
+# I'm including the interaction effect to use later in step 7
+q1_fit <- lmer(adg ~ trt + (1 | loc/block), data = dt)
+q1_vars <- as.data.frame(VarCorr(q1_fit))
+q1_var_loc <- round(q1_vars[q1_vars$grp == "loc", "vcov"], 5)
+```
+
+Point Estimate for $\sigma^2_{loc}$: [**`r q1_var_loc`**]{.underline}.
+
+# 2. What is the point estimate of $\sigma^2_{block}$?
+
+```{r q2}
+q2_var_block <- round(q1_vars[q1_vars$grp == "block:loc", "vcov"], 5)
+```
+
+Point Estimate for $\sigma^2_{block}$: [**`r q2_var_block`**]{.underline}.
+
+# 3. What is the point estimate of $\sigma^2_{error}$?
+
+```{r q3}
+q3_var_error <- round(q1_vars[q1_vars$grp == "Residual", "vcov"], 5)
+```
+
+Point Estimate for $\sigma^2_{error}$: [**`r q3_var_error`**]{.underline}.
+
+# 4. Use Satterthwaite for your estimates of denominator degrees of freedom. What are the degrees of freedom to test the null hypothesis that the treatment effects are all the same (both numerator and denominator)?  
+
+```{r q4}
+q4_anova_tab <- anova(q1_fit)
+q4_num_df <- q4_anova_tab$NumDF
+q4_den_df <- round(q4_anova_tab$DenDF, 3)
+```
+
+Numerator Degrees of Freedom: [**`r q4_num_df`**]{.underline}
+
+Denominator Degrees of Freedom: [**`r q4_den_df`**]{.underline}
+
+# 5. What is the value of the F-statistic to test the null hypothesis that the treatments are the same?
+
+```{r q5}
+q5_f_stat <- q4_anova_tab$'F value'
+```
+
+F Statistic: [**`r q5_f_stat`**]{.underline}
+
+# 6. Construct a test to see if loc A has a significantly different response than loc C. What is the $95\%$ confidence interval for loc C minus loc A?
+
+```{r q6}
+random_effects <- ranef(q1_fit, condVar = TRUE)
+
+# Get values for each location (9x1 data frame, row for each location)
+locs <- random_effects$loc
+
+loc_vars <- attr(locs, "postVar")
+
+# Get the BLUPs for A and C
+blup_A <- locs["A", "(Intercept)"]
+blup_C <- locs["C", "(Intercept)"]
+
+# Get the variances. Theyre actually the same due to the model setup, but I like to keep things general
+var_A <- loc_vars[1, 1, which(rownames(locs) == "A")]
+var_C <- loc_vars[1, 1, which(rownames(locs) == "C")]
+
+se_diff <- sqrt(var_A + var_C)
+
+# Compute the Test Statistic
+q6_diff_est <- round(blup_C - blup_A, 5)
+q6_int_lwr <- round(q6_diff_est - qt(0.975, df = q4_den_df) * se_diff, 5)
+q6_int_upr <- round(q6_diff_est + qt(0.975, df = q4_den_df) * se_diff, 5)
+
+```
+
+Estimate for C-A: [**`r q6_diff_est`**]{.underline}
+
+Lower 95% Bound for C-A: [**`r q6_int_lwr`**]{.underline}
+
+Upper 95% Bound for C-A: [**`r q6_int_upr`**]{.underline}
+
+# 7. Construct a test to see if treatment 1 in loc A has a significantly different output than treatment 3 in loc C. What is the $95\%$ confidence interval for treatment 3 in loc C minus treatment 1 in loc A?
+
+```{r q7}
+# Fixed effects
+# fixef(q1_fit): to see the full structure of the effects. 36x1
+# Column 1: Intercept
+# Columns 2-4: Treatments 2-4
+# Columns 5-12: LocB-I
+# Columns 13-36: trt2:LocB - trt4:LocI
+q7_beta_hat <- fixef(q1_fit)
+q7_V_fixed  <- as.matrix(vcov(q1_fit))
+
+# Build the fixed contrast vector
+# I'm going to build it as A1 - C3 then just flip the signs because A1 is my baseline
+coef_names <- names(fixef(q1_fit))
+C <- rep(0, length(coef_names))
+names(C) <- coef_names
+C["trt3"] <- -1
+
+# Calculate Fixed Estimate and Variance
+fixed_est   <- sum(C * q7_beta_hat)
+fixed_scale_var <- as.numeric(t(C) %*% q7_V_fixed %*% C)
+
+# Random effects extracted in Q6, just need the sum of the variances here
+random_scale_var <- var_A + var_C
+
+# Now combine the fixed and random effects
+# Q6 was calculated using C-a, so flipping it here
+q7_est <- fixed_est + (-1*q6_diff_est)
+total_se <- sqrt(fixed_scale_var + random_scale_var)
+
+# Wald t-test using Denominator Degrees of Freedom
+t_stat <- q7_est / total_se
+p_val <- 2 * pt(-abs(t_stat), df = q4_den_df)
+
+# 4. Calculate 95% Confidence Intervals
+# Apply negatives to everything to flip it for C3-A1
+q7_lwr <- -q7_est + (qt(0.975, df = q4_den_df) * total_se)
+q7_upr <- -q7_est - (qt(0.975, df = q4_den_df) * total_se)
+```
+
+Estimate for C3-A1: [**`r q7_est`**]{.underline}
+
+Lower 95% Bound for C3-A1: [**`r q7_lwr`**]{.underline}
+
+Upper 95% Bound for C3-A1: [**`r q7_upr`**]{.underline}
+
+# Now run the same model using SAS, using maximum likelihood (ML) for problems 8-10.  
+
+SAS Code used in Q8-Q10
+
+```{}
+PROC IMPORT DATAFILE='/home/u49685591/STAT537/Exam2/mltloc.csv' 
+    DBMS=CSV 
+    OUT=exam2
+    REPLACE;
+    GETNAMES=YES;
+RUN;
+
+/* Q8: Full Model*/
+proc mixed data=exam2 method = ML;
+class loc block trt;
+model adg = trt / s ddfm=satterth;
+random loc block(loc);
+run;
+
+
+/* Q10: Define Reduced Model*/
+proc mixed data=exam2 method = ML;
+   class loc block trt;
+   model adg = trt / s ddfm=satterth;
+   random block(loc);
+run;
+
+/* Q10: Conduct LRT*/
+data lrt_test;
+   reduced_2logl = -15; 
+   full_2logl    = 13.6; 
+   
+   /* Calculate Chi-Square Statistic */
+   LRT_stat = reduced_2logl - full_2logl;
+   
+   /* Calculate mixture p-value: 0.5 * P(Chi-Sq(1) > LRT_stat) */
+   if LRT_stat > 0 then p_value = 0.5 * (1 - probchi(LRT_stat, 1));
+   else p_value = 1;
+   
+   proc print;
+run;
+```
+
+I will provide the specific answers for each question within that question block, and will attach the SAS outputs at the bottom. 
+
+# 8. What is the value of the F-statistic to test the null hypothesis that the treatments are the same?
+
+F-value: [**11.52**]{.underline}.
+
+# 9. What is the estimate of $\sigma^2_{loc}$? 
+
+Estimated $\sigma^2_{loc}$: [**0.1014**]{.underline}.
+
+# 10. Using SAS output perform the likelihood ratio test that $\sigma^2_{loc}$ is not needed in the model.  What is the value of the $\chi^2$ statistic?
+
+$\chi^2$ Statistic: [**28.6**]{.underline}.
+
+# For problems 11 through 21 you will be using the Bayesian paradigm.
+
+# 11.  Do the same problem with the same three variance components in either Stan or Nimble.  Use normal priors with means of 0 and standard deviations of 30 for the treatment effects.  Use gamma priors for the variance components with shape parameters of 2 and rate parameters of 3. Check that your chains have converged by reporting the Raftery-Lewis diagnostics for all the parameters and make sure all R-L diagnostics are less than 3.
+
+```{r q11_nimble, message = FALSE, warning = FALSE}
+set.seed(1337)
+q11_nimble_code <- nimbleCode({
+    for (i in 1:N){
+        adg[i] ~ dnorm(mu[i], sd = s_err)
+        mu[i] <- trt[trt_n[i]] + 
+                block[block_n[i]] + 
+                loc[loc_n[i]]
+    }
+    # Fixed Effects
+    for (i in 1:n_trt){
+        trt[i] ~ dnorm(0, sd=30)
+    }
+    # Random Effects
+    for (i in 1:n_block){
+        block[i] ~ dnorm(0, sd = s_block)
+    }
+    for (i in 1:n_loc){
+        loc[i] ~ dnorm(0, sd = s_loc)
+    }
+    # Error hyperpriors
+    s_err ~ dgamma(shape = 2, rate = 3)
+    s_block ~ dgamma(shape = 2, rate = 3)
+    s_loc ~ dgamma(shape = 2, rate = 3)
+})
+
+# Define Parameters
+trt_n <- as.numeric(dt$trt)
+block_n <- as.numeric(dt$loc_block) # Make sure there's a different number for each block in each location
+loc_n <- as.numeric(dt$loc)
+N <- nrow(dt)
+n_trt <- 4
+n_block <- 27
+n_loc <- 9
+q11_consts <- list(
+  n_trt = n_trt, 
+  n_block = n_block,
+  n_loc = n_loc,
+  N = N, 
+  trt_n = trt_n, 
+  block_n = block_n, 
+  loc_n = loc_n)
+q11_resp <- list(adg = dt$adg)
+
+# Run the Nimble code
+q11_nimble_out <- nimbleMCMC(code = q11_nimble_code,
+                         constants = q11_consts,
+                         data = q11_resp,
+                         nchains = 5,niter = 202000,
+                         nburnin = 2000,thin = 100,
+                         samplesAsCodaMCMC = TRUE,
+                         summary = TRUE, WAIC = TRUE,
+                         monitors=c('trt', 'block', 'loc', 's_err','s_block','s_loc'))
+
+
+allsamps <- as.matrix(q11_nimble_out$samples)
+kable(raftery.diag(allsamps)$resmatrix)
+```
+
+Yes, all R-L diagnostics are less than 3 (actually pretty close to 1 for all of them). 
+
+# 12.  Also show the effective sample size for all posterior chains and make sure all exceed 5000.
+
+```{r q12}
+kable(effectiveSize(allsamps))
+```
+
+Yup, all Effective Sample Sizes are well above 5000. 
+
+# 13.  What is the $\hat{u}$ for loc A?  Use the mean of the draws from the posterior of $u[A]$ as an estimator.
+
+```{r q13}
+q13_est <- round(mean(allsamps[, "loc[1]"]), 5)
+```
+
+Point Estimate for $\hat{u}$ for Loc A: [**`r q13_est`**]{.underline}
+
+# 14.  Construct a test to see if loc A has a significantly different response than loc C.  What is the posterior probability that loc C has higher response than loc A?
+
+```{r q14}
+q14_locA <- allsamps[, "loc[1]"]
+q14_locC <- allsamps[, "loc[3]"]
+
+q14_diff_posterior <- q14_locC - q14_locA
+
+# Mean estimate and 95% HPD Interval
+q14_mean_diff <- mean(q14_diff_posterior)
+q14_ci_95 <- round(quantile(q14_diff_posterior, probs = c(0.025, 0.975)), 5)
+```
+
+Estimate for C3-A1: [**`r q14_mean_diff`**]{.underline}
+
+Lower 95% Bound for C3-A1: [**`r q14_ci_95[1]`**]{.underline}
+
+Upper 95% Bound for C3-A1: [**`r q14_ci_95[2]`**]{.underline}
+
+# 15.  Construct a test to see if treatment 1 in loc A has a significantly different output than treatment 3 in loc C.  What is the posterior probability that treatment 1 in loc A has a lower output than treatment 3 in loc C?
+
+```{r q15}
+q15_locA_tmt1 <- allsamps[, "trt[1]"] + allsamps[, "loc[1]"]
+q15_locC_tmt3 <- allsamps[, "trt[3]"] + allsamps[, "loc[3]"]
+
+q15_diff_posterior <- q15_locC_tmt3 - q15_locA_tmt1
+
+# Mean estimate and 95% HPD Interval
+q15_mean_diff <- mean(q15_diff_posterior)
+q15_ci_95 <- round(quantile(q15_diff_posterior, probs = c(0.025, 0.975)), 5)
+```
+
+Estimate for C3-A1: [**`r q15_mean_diff`**]{.underline}
+
+Lower 95% Bound for C3-A1: [**`r q15_ci_95[1]`**]{.underline}
+
+Upper 95% Bound for C3-A1: [**`r q15_ci_95[2]`**]{.underline}
+
+# 16.  What is a point estimate for $\sigma^2_{loc}$? (Use the mean)?
+
+```{r q16}
+q16_est <- round(mean(allsamps[, "s_loc"]), 5)
+```
+
+Point Estimate for $\hat{u}$ for Loc A: [**`r q16_est`**]{.underline}
+
+# 17.  What is a 95\% posterior probability interval for $\sigma^2_{loc}$?
+
+```{r q17}
+q17_ci_95 <- round(quantile(allsamps[, "s_loc"], probs = c(0.025, 0.975)), 5)
+```
+
+Lower 95% Bound for $\sigma^2_{loc}$: [**`r q17_ci_95[1]`**]{.underline}
+
+Upper 95% Bound for $\sigma^2_{loc}$: [**`r q17_ci_95[2]`**]{.underline}
+
+# 18. Plot the posterior distribution of $\sigma^2_{loc}$?
+
+```{r q18}
+hist(allsamps[, "s_loc"], freq = FALSE, breaks = 30)
+```
+
+# 19.  What is the posterior mode estimator for $\sigma^2_{loc}$?
+
+```{r}
+s_loc_density <- density(allsamps[, "s_loc"])
+peak_index <- which.max(s_loc_density$y)
+q19_mode <- round(s_loc_density$x[peak_index], 5)
+```
+
+Posterior Mode Estimate for $\sigma^2_{loc}$: [**`r q19_mode`**]{.underline}
+
+# 20.  Is one of the treatments better (yields higher results) than the each of the others with a posterior probability of 0.90?  If so, which treatment?
+
+```{r fig-q13}
+q20_tmt1_ci_90 <- round(quantile(allsamps[, "trt[1]"], probs = c(0.05, 0.95)), 5)
+q20_tmt2_ci_90 <- round(quantile(allsamps[, "trt[2]"], probs = c(0.05, 0.95)), 5)
+q20_tmt3_ci_90 <- round(quantile(allsamps[, "trt[3]"], probs = c(0.05, 0.95)), 5)
+q20_tmt4_ci_90 <- round(quantile(allsamps[, "trt[4]"], probs = c(0.05, 0.95)), 5)
+q20_tab <- as.data.frame(t(matrix(c(
+    Trt1 = q20_tmt1_ci_90, 
+    Trt2 = q20_tmt2_ci_90, 
+    Trt3 = q20_tmt3_ci_90, 
+    Trt4 = q20_tmt4_ci_90), nrow = 2)))
+colnames(q20_tab) <- c("Lower", "Upper")
+q20_tab$Treatment <- paste0("Trt", rownames(q20_tab))
+ggplot(q20_tab, aes(y = Treatment)) +
+  geom_linerange(aes(xmin = Lower, xmax = Upper), color = "royalblue", linewidth = 1.2) +
+  geom_point(aes(x = Lower), color = "darkblue", size = 3) +
+  geom_point(aes(x = Upper), color = "darkblue", size = 3) +
+  labs(
+    title = "90% HPD by Treatment",
+    x = "Interval",
+    y = "Treatment"
+  ) +
+  theme_minimal()
+```
+
+As can be seen in @fig-q13, all of the 90% HPD intervals overlap to some degree, meaning none of the treatments is significantly better. 
+
+# 21.  Is one of the treatments worse (yields lower results) than each of the others with a posterior probability of 0.90?
+
+As can be seen in @fig-q13, all of the 90% HPD intervals overlap to some degree, meaning none of the treatments is significantly worse. 
+
+# For problems 22 through 24 you will be using the frequentist paradigm.  Use SAS for these problems using method=REML.  Now you are to treat loc as a fixed term.
+
+SAS Code used in Q22-Q24
+
+```{}
+PROC IMPORT DATAFILE='/home/u49685591/STAT537/Exam2/mltloc.csv' 
+    DBMS=CSV 
+    OUT=exam2
+    REPLACE;
+    GETNAMES=YES;
+RUN;
+
+/* Q22: Full Model*/
+proc mixed data=exam2 method = REML;
+class loc block trt;
+model adg = trt loc trt*loc / s ddfm=satterth;
+random block(loc);
+run;
+```
+
+I will provide the specific answers for each question within that question block, and will attach the SAS outputs at the bottom. 
+
+# 22.  What is the estimate of $\sigma^2_{block}$ now?
+
+Estimate of $\sigma^2_{block}$: [**0.00562**]{.underline}.
+
+# 23.  Is the interaction of treatments with locations significant?  What is the p-value?
+
+Interaction F-value: [**1.20**]{.underline}.
+
+Interaction p-value: [**0.2829**]{.underline}.
+
+This indicates that no, the interaction between treatment and location is NOT significant. 
+
+# 24.  What is the F-statistic to test that the locations are significantly different from each other?
+
+Location F-value: [**25.11**]{.underline}.
+
+# For problem 25 and 26, use R.  Consider locations to be a fixed factor.  Use maximum likelihood (ML) for the estimation of variance components.
+
+# 25.  What is the estimate for $\sigma^2_{block}$?
+
+```{r}
+q25_fit <- lmer(adg ~ trt * loc + (1 | loc_block), data = dt, REML = FALSE)
+q25_v <- as.data.frame(VarCorr(q25_fit))
+q25_sig2_b <- round(q25_v[q25_v$grp == "loc_block", "vcov"], 5)
+```
+
+Point Estimate for $\sigma^2_{block}$: [**`r q25_sig2_b`**]{.underline}.
+
+# 26. Use a likelihood ratio test to see if the interaction of treatments with locations should be in the model.  What is the p-value of the test?
+
+```{r}
+q26_fit_red <- lmer(adg ~ trt + loc + (1 | loc_block), data = dt, REML = FALSE)
+q26_tab <- anova(q26_fit_red, q25_fit)
+q26_p <- round(q26_tab$`Pr(>Chisq)`[2], 5)
+```
+
+With a p-value of `r q26_p`, if we use an $\alpha = .05$ we would conclude that no, we do not need to include the interaction term. However, it's a pretty close call and I would hesitate to just say that the interaction is not needed just from this one LRT. 
+
+
+# Appendix
+
+SAS Output for Q8-Q10
+
+```{=latex}
+\includepdf[pages={-}, scale=1]{sas_q8-10.pdf}
+```
+
+SAS Output for Q22-Q24
+
+```{=latex}
+\includepdf[pages={-}, scale=1]{sas_q22-24.pdf}
+```

@@ -1,0 +1,108 @@
+---
+title: "Exam 2"
+author: "RJ Cass"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a take-home exam.  It is due on Tuesday, Nov. $3^{rd}$ at 
+12:30 pm.  Hand in the exam on Learning Suite.  You almost certainly will need to submit multiple files and that will be fine.  Please
+do not discuss anything on the exam with any living person.  You must be able to verify that the work on the exam is yours.  I am happy to have you use any generally available resource (including your homework from this class, and notes you may have from other classes).  If you are unsure if something you would like to use to take the exam is okay, please check with me.  
+
+Please take
+the exam in an R markdown file so that all code you use will be
+included.  You may just add code to this file if you would like.  
+
+Please make sure your name is the author in the header.  If you are not running
+SAS out of your markdown file, you may need to scan the output and include 
+it with the output from the other parts of the exam.  Just make sure the
+code is included, and the questions and answers are in the correct order.
+
+
+You will be using the dataset **mltloc.dat** that
+should have been emailed to you.  There are six columns  in the dataset.
+The variable names are given in the file.  'block' is clearly a random factor.   Please note the blocks are nested in locations so block 1 in location A is different than block 1 in location B.  So there are 27 blocks all together.   There are four treatments ('trt') and they are fixed.  Locations ('loc') could be either fixed or random depending on whether or not you are only concerned with the nine locations in the data set.  In some of the problems we will treat locations as random, and in some of the problems they will be fixed, so be sure to read the problems carefully.  The response is 'adg'.
+
+For all the problems we are assuming a compound symmetric covariance structure, whether there are two ($\sigma^2_{block}$, $\sigma^2_{error}$) or three ($\sigma^2_{loc}$, $\sigma^2_{block}$, $\sigma^2_{error}$) variance components.
+ 
+For problems 1 through 7 you will be using the frequentist paradigm in R.
+
+1. Fit a mixed model in R assuming there three variance components (locations, blocks and error). Use the REML
+likelihood.  What is the point estimate of $\sigma^2_{loc}$?
+
+2. What is the point estimate of $\sigma^2_{block}$?
+
+3. What is the point estimate of $\sigma^2_{error}$?
+
+4. Use Satterthwaite for your estimates of denominator degrees of freedom.  What are the degrees of freedom to test the null hypothesis that the treatment effects are all the same (both numerator and denominator)?  
+
+5. What is the value of the F-statistic to test the null hypothesis that
+the treatments are the same?
+
+6.  Construct a test to see if loc A has a significantly different response
+than loc C.  What is the $95\%$ confidence interval for loc C minus loc A?
+
+7.  Construct a test to see if treatment 1 in loc A has a significantly
+different output than treatment 3 in loc C.  What is the $95\%$ confidence interval for 
+treatment 3 in loc C minus treatment 1 in loc A?
+
+Now run the same model using SAS, using maximum likelihood (ML) for problems 8-10.  
+
+8. What is the value of the F-statistic to test
+the null hypothesis that the treatments are the same?
+
+9. What is the estimate of $\sigma^2_{loc}$? 
+
+10. Using SAS output perform the likelihood ratio test that $\sigma^2_{loc}$ is not needed in the model.  What is the value of the $\chi^2$ statistic?
+
+For problems 11 through 21 you will be using the Bayesian paradigm.
+
+11.  Do the same problem with the same three variance components in either Stan or Nimble.  Use normal priors with means of 0 and standard deviations of 30 for the treatment effects.  Use gamma priors for the variance components with
+shape parameters of 2 and rate parameters of 3. Check that your chains have converged by reporting the
+Raftery-Lewis diagnostics for all the parameters and make sure all R-L diagnostics are less than 3.
+
+12.  Also show the effective sample size for all posterior chains and make sure all exceed 5000.
+
+13.  What is the $\hat{u}$ for loc A?  Use the mean of the draws from the posterior of $u[A]$ as an estimator.
+
+14.  Construct a test to see if loc A has a significantly different response
+than loc C.  What is the posterior probability that loc C has higher response
+than loc A?
+
+15.  Construct a test to see if treatment 1 in loc A has a significantly
+different output than treatment 3 in loc C.  What is the posterior probability
+that treatment 1 in loc A has a lower output than treatment 3 in loc C?
+
+16.  What is a point estimate for $\sigma^2_{loc}$? (Use the mean)?
+
+17.  What is a 95\% posterior probability interval for $\sigma^2_{loc}$?
+
+18. Plot the posterior distribution of $\sigma^2_{loc}$?
+
+19.  What is the posterior mode estimator for $\sigma^2_{loc}$?
+
+20.  Is one of the treatments better (yields higher results) than the each of the 
+others with a posterior probability of 0.90?  If so, which treatment?
+
+21.  Is one of the treatments worse (yields lower results) than each of the others with a posterior probability of
+0.90?
+
+For problems 22 through 24 you will be using the frequentist paradigm.  Use SAS for
+these problems using method=REML.  Now you are to treat loc as a fixed term.
+
+22.  What is the estimate of $\sigma^2_{block}$ now?
+
+23.  Is the interaction of treatments with locations significant?  What is the p-value?
+
+24.  What is the F-statistic to test that the locations are significantly different from
+each other?
+
+For problem 25 and 26, use R.  Consider locations to be a fixed factor.  Use maximum likelihood (ML) for the estimation of variance components.
+
+25.  What is the estimate for $\sigma^2_{block}$?
+
+26. Use a likelihood ratio test to see if the interaction of treatments with locations should be in the model.  What is the p-value of the test?

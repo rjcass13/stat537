@@ -296,4 +296,90 @@ X =$ Cell Means
 
 $\svec{y} \sim N(X\svec{\beta}, \Sigma), \Sigma = ZGZ^{\top} + R$
 
+\section{Empirical Bayes}
+
+Estimating $u$:
+
+$y = x\beta + Zu + \epsilon$
+
+$u \sim N(0, G), \epsilon \sim N(0, R)$
+
+$(y | u, \hat{\beta}, \theta) \sim N(x\hat{\beta} + Zu, R)$
+
+Let $y^* = y - x\hat{\beta} \implies$
+
+$Lik(y|u,\hat{\beta}, \theta) = (2\pi)^{-n/2}|R|^{-1/2}e^{-\frac{1}{2}(y^* - Zu)^{\top}R^{-1}(y^* - Zu)}$
+
+$Prior(u) = (2\pi)^{-q/2}|G|^{-1/2}e^{-\frac{1}{2}u^{\top}G^{-1}u}$
+
+$Post \propto e^{-\frac{1}{2}[(y^* - Zu)^{\top}R^{-1}(y^* - Zu) + u^{\top}G^{-1}u]}$
+
+We want to get this in the form of $e^{-\frac{1}{2}(u -thing)^{\top}SomethingElse^{-1}(u -thing)}$
+
+$$
+\begin{aligned}
+& (y^* - Zu)^{\top}R^{-1}(y^* - Zu) + u^{\top}G^{-1}u \\
+& y^*{\top}R^{-1}y^* - 2u^{\top}Z^{\top}R^{-1}y^* + u^{\top}Z^{\top}R^{-1}Zu + u^{\top}G^{-1}u \\
+& u^{\top}(Z^{\top}R^{-1}Z + G^{-1})u - 2u^{\top}Z^{\top}R^{-1}y^* \\
+& \text{Need something like: } (u...y^*)(Z^{\top}R^{-1}Z + G^{-1})(u...y^*) \\
+& \text{We'll also need: } (u...z^{\top}R^{-1}y^*)(Z^{\top}R^{-1}Z + G^{-1})(u...z^{\top}R^{-1}y^*) \\
+& \text{ And now we need to cancel that middle stuff out from the sides} \\
+& (u - (Z^{\top}R^{-1}Z + G^{-1})^{-1}Z^{\top}R^{-1}y^*)(Z^{\top}R^{-1}Z + G^{-1})(u - (Z^{\top}R^{-1}Z + G^{-1})^{-1}Z^{\top}R^{-1}y^*)
+\end{aligned}
+$$
+
+We can check by multiplying this out. We end up getting:
+
+$u^{\top}(Z^{\top}R^{-1}Z + G^{-1})u - 2u^{\top}(Z^{\top}R^{-1}Z+G^{-1})(Z^{\top}R^{-1}Z+G^{-1})^{-1}Z^{\top}R^{-1}y^* + \text{constant stuff}$
+
+Dimensions: 
+
+$Z: n \times q, Z^{\top}: q \times n$
+
+$R: n \times n, R^{-1}: n \times n$
+
+$G: q \times q, G^{-1}: q \times q$
+
+$u: q \times 1, u^{\top}: 1 \times q$
+
+$Zu: n \times 1$
+
+$Z^{\top}R^{-1}Z: q \times q$
+
+So: 
+
+$\EX[u] = (Z^{\top}R^{-1}Z + G^{-1})^{-1}Z^{\top}R^{-1}y^*$
+
+$Var(u) = (Z^{\top}R^{-1}Z + G^{-1})^{-1}$
+
+Simplifying the expected value: 
+
+With $\Sigma = ZGZ^{\top} + R$
+
+$$
+\begin{aligned}
+\EX[u] & = (Z^{\top}R^{-1}Z + G^{-1})^{-1}Z^{\top}R^{-1}y^* \\
+& = (Z^{\top}R^{-1}Z + G^{-1})^{-1}Z^{\top}R^{-1}\Sigma\Sigma^{-1}y^* \\
+& = (Z^{\top}R^{-1}Z + G^{-1})^{-1}Z^{\top}R^{-1}(ZGZ^{\top} + R)\Sigma^{-1}y^*
+& = (Z^{\top}R^{-1}Z + G^{-1})^{-1}(Z^{\top}R^{-1}ZGZ^{\top} + Z^{\top}R^{-1}R)\Sigma^{-1}y^* \\
+& = (Z^{\top}R^{-1}Z + G^{-1})^{-1}(Z^{\top}R^{-1}ZGZ^{\top} + Z^{\top})\Sigma^{-1}y^* \\
+& = (Z^{\top}R^{-1}Z + G^{-1})^{-1}(Z^{\top}R^{-1}Z + G^{-1})GZ^{\top}\Sigma^{-1}y^* \\
+& = GZ^{\top}\Sigma^{-1}y^* \\
+& = GZ^{\top}\Sigma^{-1}(y - x\hat{\beta})
+\end{aligned}
+$$
+
+EBLUE, EBLUP: Frequentist notions. Estimate the variance components using MLEs, etc. They are empirircal estimates. 
+
+For the $\beta$s, they are unbiased so the $Var(\hat{\beta} - \beta) = V(\hat{\beta})$
+
+For the $u$s we have to account for the variance of $u$. 
+
+$Var(\hat{u}-u) = (Z^{\top}R^{-1}Z + G^{-1})^{-1} + GZ^{\top}\Sigma^{-1}x(x^{\top}\Sigma^{-1}x)^{-1}x^{\top}\Sigma^{-1}ZG$
+
+WE can use this for linear combinations:
+
+$V(A\begin{pmatrix} \hat{\beta} \\ \hat{u} \end{pmatrix}) = A V\begin{pmatrix} \hat{\beta} \\ \hat{u} \end{pmatrix}A$
+
+
 \end{document}
